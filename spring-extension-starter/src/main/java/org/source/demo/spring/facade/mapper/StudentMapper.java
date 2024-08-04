@@ -1,9 +1,9 @@
-package org.source.demo.spring.cache.facade.mapper;
+package org.source.demo.spring.facade.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.factory.Mappers;
-import org.source.demo.spring.cache.facade.param.StudentParam;
-import org.source.demo.spring.cache.facade.view.StudentView;
+import org.source.demo.spring.facade.param.StudentParam;
+import org.source.demo.spring.facade.view.StudentView;
 import org.source.utility.mapstruct.TwoMapper;
 
 @Mapper

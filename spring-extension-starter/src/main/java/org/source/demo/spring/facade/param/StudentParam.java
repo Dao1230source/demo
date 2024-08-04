@@ -1,4 +1,4 @@
-package org.source.demo.spring.cache.facade.param;
+package org.source.demo.spring.facade.param;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -2,9 +2,9 @@ package org.source.demo.spring.cache.facade;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import lombok.extern.slf4j.Slf4j;
-import org.source.demo.spring.cache.facade.mapper.StudentMapper;
-import org.source.demo.spring.cache.facade.param.StudentParam;
-import org.source.demo.spring.cache.facade.view.StudentView;
+import org.source.demo.spring.facade.mapper.StudentMapper;
+import org.source.demo.spring.facade.param.StudentParam;
+import org.source.demo.spring.facade.view.StudentView;
 import org.source.spring.cache.configure.CacheInJvm;
 import org.source.spring.cache.configure.CacheInRedis;
 import org.source.spring.cache.configure.ConfigureCache;
