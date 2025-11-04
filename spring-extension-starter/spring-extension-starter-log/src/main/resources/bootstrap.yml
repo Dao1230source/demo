@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: spring-extension-starter-log
+  cloud:
+    config:
+      # need redis and database config

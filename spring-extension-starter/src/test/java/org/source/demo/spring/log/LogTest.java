@@ -19,7 +19,7 @@ class LogTest {
 
     /**
      * LogController.select和LogFacade.select都有{@literal @Log}注解，
-     * 搜索日志 {@literal save logs}比较连个方法的日志不同
+     * 搜索日志 {@literal save logs}比较两个方法日志的不同
      */
     @Test
     void select() {

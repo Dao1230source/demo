@@ -4,8 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>org.source</groupId>
-    <artifactId>demo</artifactId>
+    <parent>
+        <groupId>io.github.dao1230source</groupId>
+        <artifactId>parent</artifactId>
+        <version>0.0.12</version>
+    </parent>
+
+    <groupId>org.source.demo</groupId>
+    <artifactId>parent</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 

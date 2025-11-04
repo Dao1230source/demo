@@ -3,7 +3,7 @@ package org.source.demo.spring.cache;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.source.demo.spring.cache.facade.SpringCacheConfigureFacade;
+import org.source.demo.spring.facade.SpringCacheConfigureFacade;
 import org.source.demo.spring.facade.param.StudentParam;
 import org.source.demo.spring.facade.view.StudentView;
 import org.springframework.beans.factory.annotation.Autowired;

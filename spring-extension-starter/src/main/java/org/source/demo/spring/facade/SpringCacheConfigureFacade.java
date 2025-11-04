@@ -1,4 +1,4 @@
-package org.source.demo.spring.cache.facade;
+package org.source.demo.spring.facade;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import lombok.extern.slf4j.Slf4j;

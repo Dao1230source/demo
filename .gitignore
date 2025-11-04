@@ -1,3 +1,7 @@
 /.idea/
 /utility/target/
 /spring-extension-starter/target/
+**/.mvn/
+*.gitattributes
+*mvnw
+*mvnw.cmd
