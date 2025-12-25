@@ -1,0 +1,24 @@
+server:
+  port: 8080
+spring:
+  application:
+    name: spring-extension-starter-stream-core
+  cloud:
+    stream:
+      bindings:
+        testOut:
+          binder: sfKafka
+        testIn:
+          binder: sfKafka
+      systems:
+        pms:
+          monitorUrl: http://****/mom-mon/monitor/requestService.pub
+          clusterName: imp_pms_35ttohix
+          consumers:
+            testIn-in-0:
+              topic: WORKFLOW_DEV
+              systemIdToken: DEMAND_WORKFLOW_DEV:tXJTopz7
+          producers:
+            testOut-out-0:
+              topic: WORKFLOW_DEV
+              topicTokens: WORKFLOW_DEV:bQYvtXqj

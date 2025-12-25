@@ -4,3 +4,5 @@ spring:
   cloud:
     config:
       # need redis and database config
+      uri: http://47.119.167.52:7200
+      name: common,user,redis

@@ -32,7 +32,7 @@ class AssignTest {
                 .addAssignValue(StudentInfo::setRemark, "student info")
                 .addAssignValueIfAbsent(StudentInfo::getSchool, StudentInfo::setSchool, "New York Second School")
                 // 启用线程池，并行执行 acquire，也可以指定 ExecutorService
-                .parallel()
+                .parallelVirtual()
                 // get Student list by ids
                 .addAcquire(assignFacade::getStudentList, Student::getId)
                 // 给 acquire 命名，并且启用本地缓存（启用cache必须设置name值），也可以自定义 Cache<K, T>
@@ -64,7 +64,7 @@ class AssignTest {
                 .backAcquire().backAssign().invoke()
                 // 返回最高层级
                 .backSuperlative();
-        List<StudentInfo> mainData = sourceAssign.getMainData2List();
+        List<StudentInfo> mainData = sourceAssign.toList();
         Map<Long, StudentInfo> studentInfoMap = Streams.toMap(mainData, StudentInfo::getId);
         StudentInfo studentInfo1 = studentInfoMap.get(1L);
         Assertions.assertEquals("Jim", studentInfo1.getName());
@@ -119,7 +119,7 @@ class AssignTest {
                 .backAcquire().backAssign()
                 // sub assign 是否执行不受 InterruptStrategyEnum 的影响
                 .invoke()
-                .getMainData2List();
+                .toList();
     }
 
     public void subAssign(Collection<StudentInfo> studentInfoList) {

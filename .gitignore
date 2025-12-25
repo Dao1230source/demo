@@ -2,7 +2,7 @@
 /utility/target/
 /spring-extension-starter/target/
 **/.mvn/
-*.gitattributes
-*mvnw
-*mvnw.cmd
+**/mvnw
+**/mvnw.cmd
+**/.gitattributes
 *.DS_Store
