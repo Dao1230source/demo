@@ -2,6 +2,7 @@ package org.source.spring.stream.sfkafka;
 
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.sf.kafka.api.produce.KeyedString;
 import com.sf.kafka.api.produce.ProduceConfig;
 import com.sf.kafka.api.produce.ProduceOptionalConfig;
@@ -12,6 +13,7 @@ import org.source.utility.utils.Jsons;
 import org.springframework.messaging.Message;
 import org.springframework.util.StringUtils;
 
+import java.util.HashMap;
 import java.util.List;
 
 public class SfKafkaProducer extends ProducerPool implements KafkaProducer<String, String> {
@@ -46,11 +48,15 @@ public class SfKafkaProducer extends ProducerPool implements KafkaProducer<Strin
                 }
             } else {
                 if (StringUtils.hasText(key)) {
-                    List<KeyedString> keyedStringList = Jsons.list(payload, String.class)
-                            .stream().map(item -> new KeyedString(key, item)).toList();
-                    this.batchSendKeyedString(this.getTopicName(), keyedStringList);
+                    List<HashMap<?, ?>> mapList = Jsons.obj(payload, new TypeReference<>() {
+                    });
+                    List<KeyedString> list = mapList.stream().map(k -> new KeyedString(key, Jsons.str(k))).toList();
+                    this.batchSendKeyedString(this.getTopicName(), list);
                 } else {
-                    this.sendString(this.getTopicName(), payload);
+                    List<HashMap<?, ?>> mapList = Jsons.obj(payload, new TypeReference<>() {
+                    });
+                    List<String> list = mapList.stream().map(Jsons::str).toList();
+                    this.batchSendString(this.getTopicName(), list);
                 }
             }
         } catch (Exception e) {
