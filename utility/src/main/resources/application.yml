@@ -1,6 +1,0 @@
-logging:
-  pattern:
-    console: "%style{%d{yyyy-MM-dd HH:mm:ss.SSSXXX}}{bright,green} %highlight{%-5level} [%style{%-15.15t}{bright,blue}] %style{%-30.30C{1.}}{fg_cyan} [%X{TRACE_ID}]: %msg%n%style{%throwable}{red}"
-  level:
-    root: info
-    org.source: debug

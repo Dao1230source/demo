@@ -6,6 +6,7 @@ import org.source.spring.log.Logs;
 import org.source.spring.log.annotation.Log;
 import org.source.spring.log.annotation.LogContext;
 import org.source.spring.log.enums.LogBizTypeEnum;
+import org.source.spring.log.enums.LogScopeEnum;
 import org.source.spring.log.facade.mapper.UserMapper;
 import org.source.spring.log.facade.param.UserParam;
 import org.source.spring.log.facade.view.UserView;
@@ -25,19 +26,19 @@ public class LogFacade {
      * @return view
      */
     @LogContext(bizType = LogBizTypeEnum.USER)
-    @Log(logId = "#param.userId", title = "select student info", desc = "LogFacade select")
+    @Log(bizId = "#param.userId", title = "select student info", desc = "LogFacade select")
     public UserView select(UserParam param) {
         return UserMapper.INSTANCE.x2y(param);
     }
 
-    @Log(logId = VariableConstants.PARAM_SP_EL + ".userId", title = "manualSetSomething")
+    @Log(bizId = VariableConstants.PARAM_SP_EL + ".userId", title = "manualSetSomething")
     public UserView manualSetSomething(UserParam param) {
-        Logs.setDesc("manual set something");
+        Logs.setDesc(LogScopeEnum.LOG, "manual set something");
         return UserMapper.INSTANCE.x2y(param);
     }
 
     public UserView manualSetAll(UserParam param) {
-        LogData logData = LogData.builder().logId(param.getUserId()).title("manualSetAll").desc("logManual").build();
+        LogData logData = LogData.builder().bizId(param.getUserId()).title("manualSetAll").desc("logManual").build();
         Logs.save(logData);
         return UserMapper.INSTANCE.x2y(param);
     }
@@ -48,7 +49,7 @@ public class LogFacade {
      * @param params params
      * @return list
      */
-    @Log(logId = VariableConstants.PARAM_SP_EL + ".userId",
+    @Log(bizId = VariableConstants.PARAM_SP_EL + ".userId",
             title = "batch select", desc = "LogFacade selectBatch")
     public List<UserView> selectBatch(List<UserParam> params) {
         return UserMapper.INSTANCE.x2yList(params);
@@ -60,7 +61,7 @@ public class LogFacade {
      * @param params params
      * @return list
      */
-    @Log(logId = VariableConstants.PARAM_SP_EL + ".userId",
+    @Log(bizId = VariableConstants.PARAM_SP_EL + ".userId",
             title = "'batch select' #R.userId", desc = "LogFacade selectBatch")
     public List<UserView> selectBatchLogFailed(List<UserParam> params) {
         return List.of();
