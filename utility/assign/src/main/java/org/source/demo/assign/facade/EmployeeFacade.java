@@ -45,6 +45,26 @@ public class EmployeeFacade {
         throw new UnsupportedOperationException("Test exception");
     }
 
+    /**
+     * 根据员工编码单条查询员工信息
+     *
+     * @param empCode 员工编码
+     * @return 员工数据，如果不存在返回null
+     */
+    public EmployeeData findEmployeeByEmpCode(String empCode) {
+        return EMPLOYEE_MAP.get(empCode);
+    }
+
+    /**
+     * 根据员工编码列表查询员工信息，返回List
+     *
+     * @param empCodeList 员工编码列表
+     * @return 员工数据列表
+     */
+    public List<EmployeeData> findEmployeesByEmpCodeList(List<String> empCodeList) {
+        return Streams.map(empCodeList, EMPLOYEE_MAP::get).filter(Objects::nonNull).toList();
+    }
+
     private static EmployeeData createEmployee(String empCode, String empName) {
         EmployeeData emp = new EmployeeData();
         emp.setEmpCode(empCode);
