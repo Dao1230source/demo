@@ -23,22 +23,22 @@
             <groupId>org.apache.kafka</groupId>
             <artifactId>kafka-clients</artifactId>
         </dependency>
-        <dependency>
-            <groupId>com.sf.kafka</groupId>
-            <artifactId>sf-kafka-api-core</artifactId>
-            <version>${sf-kafka.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-log4j12</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.sf.kafka</groupId>
-            <artifactId>sf-kafka-api-check-valid</artifactId>
-            <version>${sf-kafka.version}</version>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>com.sf.kafka</groupId>-->
+<!--            <artifactId>sf-kafka-api-core</artifactId>-->
+<!--            <version>${sf-kafka.version}</version>-->
+<!--            <exclusions>-->
+<!--                <exclusion>-->
+<!--                    <groupId>org.slf4j</groupId>-->
+<!--                    <artifactId>slf4j-log4j12</artifactId>-->
+<!--                </exclusion>-->
+<!--            </exclusions>-->
+<!--        </dependency>-->
+<!--        <dependency>-->
+<!--            <groupId>com.sf.kafka</groupId>-->
+<!--            <artifactId>sf-kafka-api-check-valid</artifactId>-->
+<!--            <version>${sf-kafka.version}</version>-->
+<!--        </dependency>-->
     </dependencies>
 
 </project>
