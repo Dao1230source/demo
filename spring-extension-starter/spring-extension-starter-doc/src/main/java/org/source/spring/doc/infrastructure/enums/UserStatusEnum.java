@@ -1,11 +1,11 @@
-package org.source.spring.doc.entity;
+package org.source.spring.doc.infrastructure.enums;
 
 /**
  * 用户状态枚举
  * 
  * <p>定义用户账户的不同状态</p>
  */
-public enum UserStatus {
+public enum UserStatusEnum {
     /**
      * 激活状态 - 用户可以正常登录和使用系统功能
      */

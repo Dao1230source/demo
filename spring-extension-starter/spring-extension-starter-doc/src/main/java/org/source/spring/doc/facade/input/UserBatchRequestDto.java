@@ -1,4 +1,4 @@
-package org.source.spring.doc.dto;
+package org.source.spring.doc.facade.input;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -19,5 +19,5 @@ public class UserBatchRequestDto {
     /**
      * 用户列表
      */
-    private List<UserDto> users;
+    private List<UserIn> users;
 }

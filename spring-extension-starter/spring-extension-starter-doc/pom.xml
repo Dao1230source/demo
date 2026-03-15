@@ -10,6 +10,19 @@
     <artifactId>spring-extension-starter-doc</artifactId>
 
     <dependencies>
+        <!-- org.source -->
+        <dependency>
+            <groupId>io.github.dao1230source</groupId>
+            <artifactId>utility</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.dao1230source</groupId>
+            <artifactId>jpa-extension-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.dao1230source</groupId>
+            <artifactId>spring-extension-starter-io</artifactId>
+        </dependency>
         <!-- Spring Boot Starter -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

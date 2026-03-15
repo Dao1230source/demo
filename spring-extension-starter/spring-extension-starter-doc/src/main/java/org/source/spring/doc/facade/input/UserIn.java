@@ -1,4 +1,4 @@
-package org.source.spring.doc.dto;
+package org.source.spring.doc.facade.input;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -17,7 +17,7 @@ import java.io.Serializable;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserDto implements Serializable {
+public class UserIn implements Serializable {
 
     private static final long serialVersionUID = 1L;
 

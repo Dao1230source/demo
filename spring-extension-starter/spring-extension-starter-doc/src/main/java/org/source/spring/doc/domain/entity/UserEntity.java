@@ -1,9 +1,10 @@
-package org.source.spring.doc.entity;
+package org.source.spring.doc.domain.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
+import org.source.spring.doc.infrastructure.enums.UserStatusEnum;
 
 import java.time.LocalDateTime;
 
@@ -56,7 +57,7 @@ public class UserEntity {
      */
     @Column(name = "status", nullable = false, length = 20)
     @Enumerated(EnumType.STRING)
-    private UserStatus status;
+    private UserStatusEnum status;
 
     /**
      * 创建时间
@@ -78,7 +79,7 @@ public class UserEntity {
     public UserEntity(String username, String email) {
         this.username = username;
         this.email = email;
-        this.status = UserStatus.ACTIVE;
+        this.status = UserStatusEnum.ACTIVE;
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }

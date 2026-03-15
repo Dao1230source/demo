@@ -1,4 +1,4 @@
-package org.source.spring.doc.util;
+package org.source.spring.doc.infrastructure.util;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;

@@ -1,4 +1,4 @@
-package org.source.spring.doc.dto;
+package org.source.spring.doc.facade.output;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -12,7 +12,7 @@ import lombok.AllArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserVo {
+public class UserOut {
 
     /**
      * 用户ID
