@@ -16,5 +16,6 @@
         <module>spring-extension-starter-log</module>
         <module>spring-extension-starter-stream</module>
         <module>spring-extension-starter-doc</module>
+        <module>spring-extension-starter-cache</module>
     </modules>
 </project>
