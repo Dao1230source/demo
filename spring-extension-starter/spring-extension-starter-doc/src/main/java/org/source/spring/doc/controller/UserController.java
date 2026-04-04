@@ -12,13 +12,33 @@ import java.util.List;
 /**
  * 用户管理控制器
  *
- * <p>提供用户相关的REST API接口</p>
+ * <p>
+ * 提供用户相关的REST API接口，负责接收HTTP请求并返回响应。
+ * 作为系统的入口点，处理请求的路由和参数绑定。
+ * </p>
+ *
+ * <p>
+ * 提供的接口：
+ * <ul>
+ *   <li>GET /users/{id} - 获取单个用户</li>
+ *   <li>GET /users - 获取所有用户列表</li>
+ *   <li>POST /users - 创建单个用户</li>
+ *   <li>POST /users/batch - 批量创建用户</li>
+ *   <li>PUT /users/updateUser - 更新用户信息</li>
+ * </ul>
+ * </p>
+ *
+ * @author source
+ * @since 1.0.0
  */
 @AllArgsConstructor
 @RestController
 @RequestMapping("/users")
 public class UserController {
 
+    /**
+     * 用户门面服务
+     */
     private final UserFacade userFacade;
 
     /**

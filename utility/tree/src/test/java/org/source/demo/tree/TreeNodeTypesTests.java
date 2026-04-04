@@ -3,7 +3,6 @@ package org.source.demo.tree;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +13,7 @@ import org.source.utility.tree.Tree;
 import org.source.utility.tree.define.Element;
 import org.source.utility.tree.define.EnhanceElement;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 
 import java.util.List;
@@ -69,7 +69,7 @@ class TreeNodeTypesTests {
         }
 
         @Override
-        public @NotNull Integer getId() {
+        public @NonNull Integer getId() {
             return id;
         }
 
@@ -107,7 +107,7 @@ class TreeNodeTypesTests {
         }
 
         @Override
-        public @NotNull Integer getId() {
+        public @NonNull Integer getId() {
             return id;
         }
 
@@ -150,7 +150,7 @@ class TreeNodeTypesTests {
         }
 
         @Override
-        public @NotNull Integer getId() {
+        public @NonNull Integer getId() {
             return id;
         }
 

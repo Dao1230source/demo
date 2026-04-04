@@ -11,9 +11,33 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * 用户数据门户
+ *
+ * <p>
+ * 门面层负责外部数据与内部领域数据之间的转换，是系统与外部交互的边界。
+ * 处理输入数据的验证、转换，以及输出数据的组装。
+ * </p>
+ *
+ * <p>
+ * 主要职责：
+ * <ul>
+ *   <li>接收外部请求并转换为领域对象</li>
+ *   <li>调用应用层或领域服务处理业务逻辑</li>
+ *   <li>将领域对象转换为外部响应格式</li>
+ * </ul>
+ * </p>
+ *
+ * @author source
+ * @since 1.0.0
+ */
 @AllArgsConstructor
 @Component
 public class UserFacade {
+
+    /**
+     * 用户领域服务
+     */
     private final UserService userService;
 
     /**
