@@ -10,6 +10,10 @@ import org.springframework.lang.NonNull;
  * 表示 Java 方法的文档信息，包含方法名、返回类型、
  * 返回类型的全限定名、JavaDoc 注释内容以及所属类的全限定名。
  * </p>
+ * <p>
+ * 方法的入参和返回值通过 {@link org.source.spring.doc.domain.tree.DocEnhanceTree} 
+ * 维护父子关系，不在此类中直接存储。
+ * </p>
  *
  * @author dao1230source
  * @since 1.0.0

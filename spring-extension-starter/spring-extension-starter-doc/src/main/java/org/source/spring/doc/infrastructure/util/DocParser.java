@@ -3,13 +3,19 @@ package org.source.spring.doc.infrastructure.util;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
 import org.source.spring.doc.domain.element.*;
-import org.source.spring.doc.domain.tree.DocEnhanceTree;
+import org.source.spring.doc.domain.object.DocObjectProcessor;
+import org.source.spring.doc.domain.object.DocObjectTypeEnum;
+import org.source.spring.doc.domain.object.DocValue;
 
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
@@ -24,7 +30,18 @@ import java.util.stream.Stream;
  * </ul>
  * </p>
  * <p>
+ * 方法的入参和返回值作为独立的 ParameterVariableElement 解析，
+ * 通过元素 ID 和 parentId 维护父子关系。
+ * </p>
+ * <p>
+ * 变量通过共用变量元素（SharedVariableElement）实现共享，
+ * 同一变量在多处使用时共享同一个实例。
+ * </p>
+ * <p>
  * 支持多线程并行解析，提高大规模代码库的解析效率。
+ * </p>
+ * <p>
+ * 解析结果通过 DocObjectProcessor 保存到数据库，支持增量更新和版本管理。
  * </p>
  *
  * @author dao1230source
@@ -33,177 +50,71 @@ import java.util.stream.Stream;
 @Getter
 public class DocParser {
 
-    /**
-     * JavaDoc 注释解析器
-     */
-    private final DocCommentParser commentParser;
+    private final DocObjectProcessor objectProcessor;
 
-    /**
-     * REST 注解解析器
-     */
-    private final RestAnnotationParser restParser;
-
-    /**
-     * JavaDoc 标签解析器
-     */
-    private final DocTagParser tagParser;
-
-    /**
-     * JPA 注解解析器
-     */
-    private final JpaAnnotationParser jpaParser;
-
-    /**
-     * 模块解析器
-     */
-    private final ModuleParser moduleParser;
-
-    /**
-     * 文档树形结构
-     */
-    private final DocEnhanceTree docTree;
-
-    /**
-     * 默认构造函数 - 创建空的文档树
-     */
-    public DocParser() {
-        this.commentParser = new DocCommentParser();
-        this.restParser = new RestAnnotationParser();
-        this.tagParser = new DocTagParser();
-        this.jpaParser = new JpaAnnotationParser();
-        this.moduleParser = new ModuleParser();
-        this.docTree = new DocEnhanceTree();
+    public DocParser(DocObjectProcessor objectProcessor) {
+        this.objectProcessor = objectProcessor;
     }
 
     /**
-     * 构造函数 - 使用已有的文档树
-     *
-     * @param docTree 文档树实例
-     */
-    public DocParser(DocEnhanceTree docTree) {
-        this.commentParser = new DocCommentParser();
-        this.restParser = new RestAnnotationParser();
-        this.tagParser = new DocTagParser();
-        this.jpaParser = new JpaAnnotationParser();
-        this.moduleParser = new ModuleParser();
-        this.docTree = docTree;
-    }
-
-    /**
-     * 解析整个目录 - 多线程并行版本
+     * 解析目录并保存到数据库
      * <p>
-     * 自动检测并建立完整的层级结构：Module → Class → Method → Field
-     * </p>
-     * <p>
-     * 流程：
-     * <ol>
-     *     <li>检测并解析项目模块结构（ModuleParser）</li>
-     *     <li>将模块元素添加到树中</li>
-     *     <li>并发处理每个模块，在模块内解析所有 Java 文件</li>
-     * </ol>
-     * </p>
-     * <p>
-     * 使用 parallelStream 并行处理每个模块，
-     * 在每个模块内解析所有 Java 文件，提高大规模代码库的解析效率。
+     * 解析完成后，通过 DocObjectProcessor 保存到数据库。
      * </p>
      *
-     * @param directoryPath 项目或模块的绝对路径
-     * @return 包含所有解析结果的文档树
-     * @throws IOException 如果目录读取失败
+     * @param directoryPath 目录路径
+     * @throws IOException 如果读取失败
      */
-    public DocEnhanceTree parseDirectory(String directoryPath) throws IOException {
-        List<ModuleDocElement> modules = moduleParser.parseProjectModules(directoryPath);
-        
-        if (!modules.isEmpty()) {
-            List<DocElement> moduleElements = new ArrayList<>(modules);
-            docTree.addElements(moduleElements);
+    public void parseDirectory(String directoryPath) throws IOException {
+        if (objectProcessor == null) {
+            throw new IllegalStateException("DocObjectProcessor not configured");
         }
 
-        List<DocElement> allElements = Collections.synchronizedList(new ArrayList<>());
-        
+        ModuleParser moduleParser = new ModuleParser();
+        List<ModuleDocElement> modules = moduleParser.parseProjectModules(directoryPath);
+
+        List<DocValue> allValues = Collections.synchronizedList(new ArrayList<>());
+
         modules.parallelStream().forEach(module -> {
             String modulePath = module.getModulePath();
             try {
+                DocValue moduleValue = convertElementToValue(module);
+                if (moduleValue != null) {
+                    allValues.add(moduleValue);
+                }
+
                 List<String> javaFiles = collectJavaFiles(modulePath);
-                
                 javaFiles.forEach(javaFile -> {
-                    DocCommentParser localCommentParser = new DocCommentParser();
-                    JpaAnnotationParser localJpaParser = new JpaAnnotationParser();
-                    DocTagParser localTagParser = new DocTagParser();
-                    RestAnnotationParser localRestParser = new RestAnnotationParser();
-                    
-                    List<DocElement> elements = parseJavaFileToElements(
-                        javaFile, 
-                        localCommentParser, 
-                        localJpaParser, 
-                        localTagParser, 
-                        localRestParser, 
-                        modulePath
-                    );
-                    allElements.addAll(elements);
+                    List<DocValue> values = parseJavaFileToValues(javaFile, modulePath);
+                    allValues.addAll(values);
                 });
             } catch (IOException e) {
                 System.err.println("Error parsing module: " + modulePath + " - " + e.getMessage());
             }
         });
 
-        if (!allElements.isEmpty()) {
-            docTree.addElements(allElements);
-        }
-
-        return docTree;
-    }
-
-    /**
-     * 收集目录下的所有 Java 文件（仅限 src/main/java）
-     * <p>
-     * 只收集 src/main/java 目录下的 Java 文件，
-     * 排除 test、target、build 等目录下的文件。
-     * </p>
-     *
-     * @param directoryPath 目录路径
-     * @return Java 文件路径列表
-     * @throws IOException 如果目录遍历失败
-     */
-    private List<String> collectJavaFiles(String directoryPath) throws IOException {
-        Path srcMainJavaPath = Paths.get(directoryPath, "src", "main", "java");
-        
-        if (!Files.exists(srcMainJavaPath)) {
-            return Collections.emptyList();
-        }
-        
-        try (Stream<Path> paths = Files.walk(srcMainJavaPath)) {
-            return paths
-                    .filter(Files::isRegularFile)
-                    .map(Path::toString)
-                    .filter(string -> string.endsWith(".java"))
-                    .toList();
+        if (!allValues.isEmpty()) {
+            objectProcessor.save(allValues);
         }
     }
 
     /**
-     * 解析单个 Java 文件，返回元素列表
-     * <p>
-     * 线程安全方法，每个线程创建独立的解析器实例。
-     * </p>
+     * 解析单个 Java 文件并转换为 DocValue 列表
      *
      * @param filePath 文件路径
-     * @param localCommentParser 本线程的注释解析器
-     * @param localJpaParser 本线程的 JPA 解析器
-     * @param localTagParser 本线程的标签解析器
-     * @param localRestParser 本线程的 REST 解析器
-     * @param modulePath 所属模块路径（可选，用于建立 class → module 层级关系）
-     * @return 解析得到的文档元素列表
+     * @param modulePath 模块路径
+     * @return DocValue 列表
      */
-    private List<DocElement> parseJavaFileToElements(String filePath, DocCommentParser localCommentParser, 
-                                                       JpaAnnotationParser localJpaParser, 
-                                                       DocTagParser localTagParser,
-                                                       RestAnnotationParser localRestParser,
-                                                       String modulePath) {
-        List<DocElement> elements = new ArrayList<>();
+    private List<DocValue> parseJavaFileToValues(String filePath, String modulePath) {
+        DocCommentParser localCommentParser = new DocCommentParser();
+        JpaAnnotationParser localJpaParser = new JpaAnnotationParser();
+        DocTagParser localTagParser = new DocTagParser();
+        RestAnnotationParser localRestParser = new RestAnnotationParser();
+        List<DocValue> values = new ArrayList<>();
         try {
-            String sourceCode = Files.readString(Paths.get(filePath));
-            String fileName = Paths.get(filePath).getFileName().toString();
+            Path path = Paths.get(filePath);
+            String sourceCode = Files.readString(path);
+            String fileName = path.getFileName().toString();
             String className = fileName.replace(".java", "");
 
             String packageName = extractPackageName(sourceCode);
@@ -215,7 +126,10 @@ public class DocParser {
                 if (modulePath != null) {
                     classElement.setModuleName(modulePath);
                 }
-                elements.add(classElement);
+                DocValue classValue = convertElementToValue(classElement);
+                if (classValue != null) {
+                    values.add(classValue);
+                }
             }
 
             List<MethodDocElement> methods = localCommentParser.parseAllMethods(sourceCode, qualifiedName);
@@ -224,45 +138,151 @@ public class DocParser {
                     var tags = localTagParser.parseAllTags(method.getDocContent());
                     method.setDocContent((String) tags.getOrDefault("return", method.getDocContent()));
                 }
-                elements.add(method);
+                DocValue methodValue = convertElementToValue(method);
+                if (methodValue != null) {
+                    values.add(methodValue);
+                }
+
+                List<ParameterVariableElement> params = localCommentParser.parseMethodParameters(
+                        sourceCode, qualifiedName, method.getMethodName());
+                for (ParameterVariableElement param : params) {
+                    DocValue paramValue = convertElementToValue(param);
+                    if (paramValue != null) {
+                        values.add(paramValue);
+                    }
+                }
+
+                ParameterVariableElement returnValue = localCommentParser.parseMethodReturnValue(
+                        sourceCode, qualifiedName, method.getMethodName());
+                if (returnValue != null) {
+                    DocValue returnValueDoc = convertElementToValue(returnValue);
+                    if (returnValueDoc != null) {
+                        values.add(returnValueDoc);
+                    }
+                }
             }
 
-            List<FieldDocElement> fields = localCommentParser.parseAllFields(sourceCode, qualifiedName);
-            for (FieldDocElement field : fields) {
-                field = localJpaParser.parseJpaFieldAnnotations(sourceCode, qualifiedName, field);
-                elements.add(field);
+            List<MemberVariableElement> fields = localCommentParser.parseAllMemberVariables(sourceCode, qualifiedName);
+            for (MemberVariableElement field : fields) {
+                JpaColumnVariableElement jpaColumn = localJpaParser.parseJpaColumnVariable(
+                        sourceCode, qualifiedName, field.getVariableName(), field.getSharedVariable());
+                DocElement fieldElement = Objects.requireNonNullElse(jpaColumn, field);
+                DocValue fieldValue = convertElementToValue(fieldElement);
+                if (fieldValue != null) {
+                    values.add(fieldValue);
+                }
             }
 
             List<RestDocElement> endpoints = localRestParser.parseRestEndpoints(sourceCode, qualifiedName);
-            elements.addAll(endpoints);
+            for (RestDocElement endpoint : endpoints) {
+                DocValue endpointValue = convertElementToValue(endpoint);
+                if (endpointValue != null) {
+                    values.add(endpointValue);
+                }
+            }
 
+            Collection<SharedVariableElement> sharedVariables = localCommentParser.getSharedVariableCache().values();
+            for (SharedVariableElement sharedVar : sharedVariables) {
+                DocValue sharedValue = convertElementToValue(sharedVar);
+                if (sharedValue != null) {
+                    values.add(sharedValue);
+                }
+            }
         } catch (IOException e) {
             System.err.println("Error parsing file: " + filePath + " - " + e.getMessage());
         }
-        return elements;
+        return values;
     }
 
     /**
-     * 解析单个 Java 文件
-     * <p>
-     * 单线程版本，保留向后兼容性
-     * </p>
+     * 将单个 DocElement 转换为 DocValue
      *
-     * @param filePath 文件路径
+     * @param element 文档元素
+     * @return DocValue，如果转换失败返回 null
      */
-    public void parseJavaFile(String filePath) {
-        List<DocElement> elements = parseJavaFileToElements(filePath, commentParser, jpaParser, tagParser, restParser, null);
-        for (DocElement element : elements) {
-            docTree.addElement(element);
+    private DocValue convertElementToValue(DocElement element) {
+        if (element == null) {
+            return null;
+        }
+
+        DocValue value = new DocValue();
+        value.setObjectId(element.getId());
+        value.setName(element.getId());
+        value.setRelationType(null);
+
+        if (element instanceof ClassDocElement classElement) {
+            convertClassElement(classElement, value);
+        } else if (element instanceof MethodDocElement methodElement) {
+            convertMethodElement(methodElement, value);
+        } else if (element instanceof MemberVariableElement memberElement) {
+            convertMemberVariableElement(memberElement, value);
+        } else if (element instanceof SharedVariableElement sharedElement) {
+            convertSharedVariableElement(sharedElement, value);
+        } else if (element instanceof RestDocElement restElement) {
+            convertRestElement(restElement, value);
+        } else if (element instanceof ModuleDocElement moduleElement) {
+            convertModuleElement(moduleElement, value);
+        } else if (element instanceof ParameterVariableElement paramElement) {
+            convertParameterElement(paramElement, value);
+        }
+
+        return value;
+    }
+
+    private void convertClassElement(ClassDocElement element, DocValue value) {
+        value.setName(element.getClassName());
+        value.setSorted(element.getClassName());
+    }
+
+    private void convertMethodElement(MethodDocElement element, DocValue value) {
+        value.setName(element.getMethodName());
+        value.setSorted(element.getMethodName());
+    }
+
+    private void convertMemberVariableElement(MemberVariableElement element, DocValue value) {
+        value.setName(element.getVariableName());
+        value.setSorted(element.getVariableName());
+
+        if (element instanceof JpaColumnVariableElement jpaElement) {
+            value.setSorted(jpaElement.getColumnName());
         }
     }
 
-    /**
-     * 从源代码中提取包名
-     *
-     * @param sourceCode Java 源代码
-     * @return 包名，如果没有包名则返回空字符串
-     */
+    private void convertSharedVariableElement(SharedVariableElement element, DocValue value) {
+        value.setName(element.getVariableName());
+        value.setSorted(element.getVariableName());
+    }
+
+    private void convertRestElement(RestDocElement element, DocValue value) {
+        value.setName(element.getHttpMethod() + ":" + element.getPath());
+        value.setSorted(element.getPath());
+    }
+
+    private void convertModuleElement(ModuleDocElement element, DocValue value) {
+        value.setName(element.getModuleName());
+        value.setSorted(element.getModuleName());
+    }
+
+    private void convertParameterElement(ParameterVariableElement element, DocValue value) {
+        value.setName(element.getVariableName());
+        String orderStr = String.valueOf(element.getParameterOrder());
+        value.setSorted(orderStr.length() == 1 ? "0" + orderStr : orderStr);
+    }
+
+    private List<String> collectJavaFiles(String directoryPath) throws IOException {
+        Path srcMainJavaPath = Paths.get(directoryPath, "src", "main", "java");
+        if (!Files.exists(srcMainJavaPath)) {
+            return Collections.emptyList();
+        }
+        try (Stream<Path> paths = Files.walk(srcMainJavaPath)) {
+            return paths
+                    .filter(Files::isRegularFile)
+                    .map(Path::toString)
+                    .filter(string -> string.endsWith(".java"))
+                    .toList();
+        }
+    }
+
     private String extractPackageName(String sourceCode) {
         for (String line : sourceCode.split("\n")) {
             line = line.trim();

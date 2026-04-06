@@ -23,6 +23,10 @@
             <groupId>io.github.dao1230source</groupId>
             <artifactId>spring-extension-starter-io</artifactId>
         </dependency>
+         <dependency>
+            <groupId>io.github.dao1230source</groupId>
+            <artifactId>spring-extension-starter-object</artifactId>
+        </dependency>
         <!-- Spring Boot Starter -->
         <dependency>
             <groupId>org.springframework.boot</groupId>

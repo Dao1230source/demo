@@ -18,7 +18,7 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class UserBatchRequestDto {
+public class UserBatchIn {
 
     /**
      * 用户列表

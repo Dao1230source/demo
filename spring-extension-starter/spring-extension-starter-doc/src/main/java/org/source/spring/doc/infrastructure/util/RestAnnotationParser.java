@@ -6,10 +6,8 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.comments.JavadocComment;
 import com.github.javaparser.ast.expr.AnnotationExpr;
-import org.source.spring.doc.domain.element.ClassDocElement;
-import org.source.spring.doc.domain.element.FieldDocElement;
-import org.source.spring.doc.domain.element.MethodDocElement;
 import org.source.spring.doc.domain.element.RestDocElement;
 
 import java.util.ArrayList;
@@ -18,25 +16,24 @@ import java.util.Optional;
 
 /**
  * REST注解解析器，用于解析Spring MVC的REST接口注解信息。
- * 
+ *
  * <p>该类基于JavaParser实现，能够解析Spring MVC中的@RestController、@RequestMapping、
- * @GetMapping、@PostMapping等注解，提取REST接口的HTTP方法、请求路径、路径变量、
- * 请求参数、请求体等信息。</p>
- * 
+ *
+ * @author source
+ * {@literal @GetMapping、@PostMapping}等注解，提取REST接口的HTTP方法、请求路径、路径变量、 请求参数、请求体等信息。</p>
+ *
  * <p>使用场景：</p>
  * <ul>
  *   <li>解析Spring MVC控制器类，提取REST接口信息</li>
  *   <li>生成API文档时获取接口定义信息</li>
  *   <li>接口测试工具中自动发现接口定义</li>
  * </ul>
- * 
+ *
  * <p>使用示例：</p>
  * <pre>{@code
  * RestAnnotationParser parser = new RestAnnotationParser();
  * List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "com.example.UserController");
  * }</pre>
- * 
- * @author source
  * @since 1.0.0
  */
 public class RestAnnotationParser {
@@ -48,7 +45,7 @@ public class RestAnnotationParser {
 
     /**
      * 构造REST注解解析器实例。
-     * 
+     *
      * <p>初始化JavaParser配置，不启用符号解析器以提高解析速度。</p>
      */
     public RestAnnotationParser() {
@@ -59,17 +56,18 @@ public class RestAnnotationParser {
 
     /**
      * 解析源代码中的REST接口端点信息。
-     * 
-     * <p>扫描指定类的所有方法，识别Spring MVC的请求映射注解（@GetMapping、@PostMapping等），
+     *
+     * <p>仅解析标注了 @RestController 或 @Controller 注解的类，
+     * 扫描类的所有方法，识别Spring MVC的请求映射注解（@GetMapping、@PostMapping等），
      * 提取完整的请求路径、HTTP方法、参数信息等。</p>
-     * 
-     * @param sourceCode Java源代码内容
+     *
+     * @param sourceCode         Java源代码内容
      * @param classQualifiedName 类的全限定名
-     * @return REST接口端点列表，如果没有找到REST接口则返回空列表
+     * @return REST接口端点列表，如果类没有 @RestController 或 @Controller 注解则返回空列表
      */
     public List<RestDocElement> parseRestEndpoints(String sourceCode, String classQualifiedName) {
         List<RestDocElement> endpoints = new ArrayList<>();
-        
+
         ParseResult<CompilationUnit> result = javaParser.parse(sourceCode);
         if (!result.isSuccessful() || result.getResult().isEmpty()) {
             return endpoints;
@@ -84,10 +82,14 @@ public class RestAnnotationParser {
         }
 
         ClassOrInterfaceDeclaration classDecl = classOpt.get();
-        
+
+        if (!isRestController(classDecl)) {
+            return endpoints;
+        }
+
         String classPath = "";
         String classBasePath = "";
-        
+
         for (AnnotationExpr annotation : classDecl.getAnnotations()) {
             if (isRequestMapping(annotation)) {
                 classBasePath = extractPath(annotation);
@@ -107,13 +109,33 @@ public class RestAnnotationParser {
     }
 
     /**
+     * 判断类是否为 REST 控制器。
+     *
+     * <p>检查类是否标注了 @RestController 或 @Controller 注解。</p>
+     *
+     * @param classDecl 类声明对象
+     * @return 如果是 REST 控制器返回 true，否则返回 false
+     */
+    private boolean isRestController(ClassOrInterfaceDeclaration classDecl) {
+        for (AnnotationExpr annotation : classDecl.getAnnotations()) {
+            String name = annotation.getNameAsString();
+            if ("RestController".equals(name) || "Controller".equals(name)
+                    || "org.springframework.web.bind.annotation.RestController".equals(name)
+                    || "org.springframework.stereotype.Controller".equals(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * 解析单个方法的REST接口信息。
-     * 
+     *
      * <p>检查方法上的请求映射注解，提取HTTP方法、路径、参数、返回值等信息。
      * 同时提取方法的JavaDoc注释内容。</p>
-     * 
-     * @param method 方法声明对象
-     * @param classPath 类的全限定路径
+     *
+     * @param method        方法声明对象
+     * @param classPath     类的全限定路径
      * @param classBasePath 类级别的请求路径前缀
      * @return REST接口端点信息，如果方法没有请求映射注解则返回null
      */
@@ -126,11 +148,9 @@ public class RestAnnotationParser {
                 endpoint.setPath(classBasePath + extractPath(annotation));
                 endpoint.setClassPath(classPath);
                 endpoint.setReturnType(method.getType().asString());
-                
-                Optional<com.github.javaparser.ast.comments.JavadocComment> javadoc = method.getJavadocComment();
-                if (javadoc.isPresent()) {
-                    endpoint.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
-                }
+
+                Optional<JavadocComment> javadoc = method.getJavadocComment();
+                javadoc.ifPresent(javadocComment -> endpoint.setDocContent(cleanJavadocContent(javadocComment.getContent())));
 
                 endpoint.setPathVariables(extractPathVariables(method));
                 endpoint.setRequestParams(extractRequestParams(method));
@@ -144,7 +164,7 @@ public class RestAnnotationParser {
 
     /**
      * 根据注解名称获取HTTP方法类型。
-     * 
+     *
      * @param annotation 注解表达式对象
      * @return HTTP方法名称（GET、POST、PUT、DELETE、PATCH），如果不是请求映射注解则返回null
      */
@@ -162,7 +182,7 @@ public class RestAnnotationParser {
 
     /**
      * 判断注解是否为@RequestMapping注解。
-     * 
+     *
      * @param annotation 注解表达式对象
      * @return 如果是@RequestMapping注解返回true，否则返回false
      */
@@ -173,14 +193,14 @@ public class RestAnnotationParser {
 
     /**
      * 从请求映射注解中提取路径值。
-     * 
+     *
      * <p>支持两种注解格式：
      * <ul>
      *   <li>@GetMapping("/path") - 单值注解形式</li>
      *   <li>@GetMapping(value = "/path") 或 @GetMapping(path = "/path") - 正常注解形式</li>
      * </ul>
      * </p>
-     * 
+     *
      * @param annotation 注解表达式对象
      * @return 请求路径字符串，如果没有指定路径则返回空字符串
      */
@@ -199,7 +219,7 @@ public class RestAnnotationParser {
 
     /**
      * 从表达式中提取字符串字面值。
-     * 
+     *
      * @param value 表达式对象
      * @return 字符串字面值，如果不是字符串字面量则返回空字符串
      */
@@ -212,7 +232,7 @@ public class RestAnnotationParser {
 
     /**
      * 提取方法参数中标注了@PathVariable注解的路径变量。
-     * 
+     *
      * @param method 方法声明对象
      * @return 路径变量名称数组
      */
@@ -230,7 +250,7 @@ public class RestAnnotationParser {
 
     /**
      * 提取方法参数中标注了@RequestParam注解的请求参数。
-     * 
+     *
      * @param method 方法声明对象
      * @return 请求参数名称数组
      */
@@ -248,7 +268,7 @@ public class RestAnnotationParser {
 
     /**
      * 提取方法参数中标注了@RequestBody注解的请求体类型。
-     * 
+     *
      * @param method 方法声明对象
      * @return 请求体的类型名称，如果没有@RequestBody参数则返回null
      */
@@ -265,10 +285,10 @@ public class RestAnnotationParser {
 
     /**
      * 清理JavaDoc注释内容，移除格式标记和标签部分。
-     * 
+     *
      * <p>处理JavaDoc注释，移除行首的星号标记，提取纯文本描述部分，
      * 在遇到第一个标签（以@开头）时停止提取。</p>
-     * 
+     *
      * @param content 原始JavaDoc注释内容
      * @return 清理后的纯文本描述，如果内容为空则原样返回
      */

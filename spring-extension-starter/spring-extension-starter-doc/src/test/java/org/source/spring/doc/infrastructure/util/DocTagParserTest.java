@@ -2,13 +2,8 @@ package org.source.spring.doc.infrastructure.util;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 import org.source.spring.doc.domain.element.*;
-import org.source.spring.doc.domain.tree.DocEnhanceTree;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 
