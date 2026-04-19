@@ -4,6 +4,10 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.springframework.lang.NonNull;
 
+import java.util.Map;
+
+import java.util.List;
+
 /**
  * 方法入参变量引用元素
  * <p>
@@ -68,6 +72,14 @@ public class ParameterVariableElement extends DocElement {
      * 是否为原始类型（用于返回值等不使用共用变量的场景）
      */
     private boolean primitive;
+
+    /**
+     * 验证注解列表
+     * <p>
+     * 存储参数上的验证注解，如 @NotNull, @NotBlank, @Size, @Valid 等
+     * </p>
+     */
+    private List<String> validationAnnotations;
 
     /**
      * 获取元素的唯一标识

@@ -19,6 +19,16 @@ import org.source.utility.tree.define.EnhanceElement;
 public abstract class DocElement extends EnhanceElement<String> {
 
     /**
+     * 是否已废弃（@Deprecated 注解）
+     */
+    private boolean deprecated;
+
+    /**
+     * 废弃说明（@Deprecated 的 since 或 forRemoval 属性）
+     */
+    private String deprecatedReason;
+
+    /**
      * 比较两个文档元素
      * <p>
      * 基于 ID 进行字符串比较，用于树形结构排序

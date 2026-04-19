@@ -4,6 +4,10 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.springframework.lang.NonNull;
 
+import java.util.Map;
+
+import java.util.Map;
+
 /**
  * 方法文档元素
  * <p>
@@ -48,16 +52,35 @@ public class MethodDocElement extends DocElement {
     private String classQualifiedName;
 
     /**
+     * 方法参数类型列表
+     * <p>
+     * 格式：参数类型用逗号分隔，如 "String,int,List&lt;User&gt;"
+     * 用于区分重载方法，使方法 ID 唯一
+     * </p>
+     */
+    private String parameterTypes;
+
+    /**
+     * 是否为构造函数
+     */
+    private Boolean isConstructor;
+
+    /**
      * 获取元素的唯一标识
      * <p>
-     * 格式：类全限定名#方法名
+     * 格式：类全限定名#方法名(参数类型列表)
+     * 例如：com.example.UserService#getUser(String) 或 com.example.UserService#getUser(Long)
      * </p>
      *
      * @return 方法的唯一标识
      */
     @Override
     public @NonNull String getId() {
-        return classQualifiedName + "#" + methodName;
+        String base = classQualifiedName + "#" + methodName;
+        if (parameterTypes != null && !parameterTypes.isEmpty()) {
+            return base + "(" + parameterTypes + ")";
+        }
+        return base;
     }
 
     /**

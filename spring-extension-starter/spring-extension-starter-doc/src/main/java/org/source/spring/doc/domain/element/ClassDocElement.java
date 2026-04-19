@@ -4,6 +4,8 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import org.springframework.lang.NonNull;
 
+import java.util.Map;
+
 /**
  * 类文档元素
  * <p>
@@ -55,6 +57,45 @@ public class ClassDocElement extends DocElement {
      * </p>
      */
     private String moduleName;
+
+    /**
+     * 是否为接口
+     */
+    private Boolean isInterface;
+
+    /**
+     * 是否为枚举
+     */
+    private Boolean isEnum;
+
+    /**
+     * 是否已废弃（@Deprecated）
+     */
+    private Boolean deprecated;
+
+    /**
+     * Spring 组件注解信息
+     * <p>
+     * 包含 @Service、@Component、@Configuration 等注解信息
+     * </p>
+     */
+    private Map<String, Object> springAnnotations;
+
+    /**
+     * Feign 客户端信息
+     * <p>
+     * 包含 @FeignClient 注解解析结果
+     * </p>
+     */
+    private Map<String, Object> feignInfo;
+
+    /**
+     * MyBatis Mapper 信息
+     * <p>
+     * 包含 @Mapper 及 SQL 注解解析结果
+     * </p>
+     */
+    private Map<String, Object> myBatisInfo;
 
     /**
      * 获取元素的唯一标识

@@ -25,14 +25,30 @@ import java.util.Optional;
  */
 public class JpaAnnotationParser {
 
+    /**
+     * JavaParser 实例
+     */
     private final JavaParser javaParser;
 
+    /**
+     * 构造 JPA 注解解析器
+     */
     public JpaAnnotationParser() {
         ParserConfiguration config = new ParserConfiguration()
                 .setSymbolResolver(null);
         this.javaParser = new JavaParser(config);
     }
 
+    /**
+     * 解析类上的 JPA 注解
+     * <p>
+     * 解析 @Entity、@Table 注解，设置实体标识和表名
+     * </p>
+     *
+     * @param sourceCode Java 源代码
+     * @param classElement 类文档元素
+     * @return 解析后的类文档元素
+     */
     public ClassDocElement parseJpaAnnotations(String sourceCode, ClassDocElement classElement) {
         ParseResult<CompilationUnit> result = javaParser.parse(sourceCode);
         if (!result.isSuccessful() || result.getResult().isEmpty()) {
@@ -75,6 +91,18 @@ public class JpaAnnotationParser {
         return classElement;
     }
 
+    /**
+     * 解析字段的 JPA 列信息
+     * <p>
+     * 解析 @Column、@Id 注解，提取列名和主键标识
+     * </p>
+     *
+     * @param sourceCode Java 源代码
+     * @param classQualifiedName 类的全限定名
+     * @param variableName 变量名
+     * @param sharedVariable 共用变量元素
+     * @return JPA 列变量元素，如果字段不是 JPA 列则返回 null
+     */
     public JpaColumnVariableElement parseJpaColumnVariable(String sourceCode, String classQualifiedName, 
                                                             String variableName, SharedVariableElement sharedVariable) {
         ParseResult<CompilationUnit> result = javaParser.parse(sourceCode);
@@ -129,6 +157,13 @@ public class JpaAnnotationParser {
         return element;
     }
 
+    /**
+     * 从注解中提取指定属性的值
+     *
+     * @param annotation 注解表达式
+     * @param attributeName 属性名
+     * @return 属性值，如果未找到则返回 null
+     */
     private String extractAnnotationValue(AnnotationExpr annotation, String attributeName) {
         if (annotation == null) {
             return null;

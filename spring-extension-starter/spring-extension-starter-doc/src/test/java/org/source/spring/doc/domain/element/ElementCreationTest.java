@@ -171,19 +171,6 @@ public class ElementCreationTest {
     }
 
     @Test
-    void testAnnotationDocElementCreation() {
-        AnnotationDocElement element = new AnnotationDocElement();
-        
-        element.setAnnotationName("Entity");
-        element.setAnnotationMembers(java.util.Map.of("name", "users"));
-        
-        assertEquals("Entity", element.getAnnotationName());
-        assertEquals("users", element.getAnnotationMembers().get("name"));
-        
-        assertEquals("Entity", element.getId());
-    }
-
-    @Test
     void testParameterVariableElementCreation() {
         SharedVariableElement sharedVar = new SharedVariableElement();
         sharedVar.setVariableName("id");

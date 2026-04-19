@@ -25,28 +25,52 @@ import java.time.LocalDateTime;
 })
 public class DocRelationEntity implements RelationEntityDefiner {
 
+    /**
+     * 主键 ID
+     */
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /**
+     * 子对象 ID
+     */
     @Column(name = "object_id", nullable = false, length = 64)
     private String objectId;
 
+    /**
+     * 父对象 ID
+     */
     @Column(name = "parent_object_id", nullable = false, length = 64)
     private String parentObjectId;
 
+    /**
+     * 关系类型
+     */
     @Column(name = "type")
     private Integer type;
 
+    /**
+     * 排序字段
+     */
     @Column(name = "sorted", length = 50)
     private String sorted;
 
+    /**
+     * 创建人
+     */
     @Column(name = "create_user", length = 64)
     private String createUser;
 
+    /**
+     * 创建时间
+     */
     @Column(name = "create_time")
     private LocalDateTime createTime;
 
+    /**
+     * 持久化前回调，自动设置创建时间
+     */
     @PrePersist
     public void prePersist() {
         if (createTime == null) {
