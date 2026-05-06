@@ -2,10 +2,10 @@ package org.source.spring.doc.infrastructure.util;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.source.spring.doc.domain.element.ClassDocElement;
-import org.source.spring.doc.domain.element.MemberVariableElement;
-import org.source.spring.doc.domain.element.MethodDocElement;
-import org.source.spring.doc.domain.element.ParameterVariableElement;
+import org.source.spring.doc.domain.value.ClassDocData;
+import org.source.spring.doc.domain.value.MemberVariableData;
+import org.source.spring.doc.domain.value.MethodDocData;
+import org.source.spring.doc.domain.value.ParameterVariableData;
 
 import java.util.List;
 
@@ -13,9 +13,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * DocCommentParser测试
- *
- * @author dao1230source
- * @since 1.0.0
  */
 public class DocCommentParserTest {
 
@@ -30,7 +27,7 @@ public class DocCommentParserTest {
     void testParseClassDocComment() {
         String sourceCode = """
             package org.example;
-            
+
             /**
              * 用户实体类
              */
@@ -38,74 +35,27 @@ public class DocCommentParserTest {
             }
             """;
 
-        ClassDocElement element = parser.parseClassDoc(sourceCode, "org.example.UserEntity");
+        ClassDocData value = parser.parseClassDoc(sourceCode, "org.example.UserEntity", "test-module", 0);
 
-        assertNotNull(element);
-        assertEquals("UserEntity", element.getClassName());
-        assertEquals("org.example.UserEntity", element.getClassQualifiedName());
-        assertEquals("用户实体类", element.getDocContent());
-    }
-
-    @Test
-    void testParseMethodDocComment() {
-        String sourceCode = """
-            package org.example;
-            
-            public class UserService {
-                /**
-                 * 根据ID查询用户
-                 * @param id 用户ID
-                 * @return 用户对象
-                 */
-                public UserEntity findById(Long id) {
-                    return null;
-                }
-            }
-            """;
-
-        MethodDocElement element = parser.parseMethodDoc(sourceCode, 
-            "org.example.UserService", "findById");
-
-        assertNotNull(element);
-        assertEquals("findById", element.getMethodName());
-        assertEquals("UserEntity", element.getReturnType());
-        assertEquals("根据ID查询用户", element.getDocContent());
-    }
-
-    @Test
-    void testParseMemberVariableDocComment() {
-        String sourceCode = """
-            package org.example;
-            
-            public class UserEntity {
-                /**
-                 * 用户名
-                 */
-                private String username;
-            }
-            """;
-
-        MemberVariableElement element = parser.parseMemberVariableDoc(sourceCode,
-            "org.example.UserEntity", "username");
-
-        assertNotNull(element);
-        assertEquals("username", element.getVariableName());
-        assertEquals("String", element.getVariableType());
-        assertEquals("用户名", element.getDocContent());
+        assertNotNull(value);
+        assertEquals("UserEntity", value.getClassName());
+        assertEquals("org.example.UserEntity", value.getName());
+        assertEquals("test-module", value.getParentName());
+        assertEquals("用户实体类", value.getDocContent());
     }
 
     @Test
     void testParseMultipleMethods() {
         String sourceCode = """
             package org.example;
-            
+
             public class UserService {
                 /**
                  * 保存用户
                  */
                 public void save(UserEntity user) {
                 }
-                
+
                 /**
                  * 删除用户
                  */
@@ -114,16 +64,16 @@ public class DocCommentParserTest {
             }
             """;
 
-        List<MethodDocElement> elements = parser.parseAllMethods(sourceCode, "org.example.UserService");
+        List<MethodDocData> values = parser.parseAllMethods(sourceCode, "org.example.UserService");
 
-        assertEquals(2, elements.size());
+        assertEquals(2, values.size());
     }
 
     @Test
     void testParseMethodParameters() {
         String sourceCode = """
             package org.example;
-            
+
             public class UserService {
                 /**
                  * 根据ID和状态查询用户
@@ -137,16 +87,16 @@ public class DocCommentParserTest {
             }
             """;
 
-        List<ParameterVariableElement> params = parser.parseMethodParameters(
+        List<ParameterVariableData> params = parser.parseMethodParameters(
                 sourceCode, "org.example.UserService", "findByIdAndStatus");
 
         assertEquals(2, params.size());
-        
+
         assertEquals("id", params.get(0).getVariableName());
         assertEquals("Long", params.get(0).getVariableType());
         assertEquals(0, params.get(0).getParameterOrder());
-        assertEquals("org.example.UserService#findByIdAndStatus", params.get(0).getParentId());
-        
+        assertEquals("org.example.UserService#findByIdAndStatus", params.get(0).getParentName());
+
         assertEquals("status", params.get(1).getVariableName());
         assertEquals("String", params.get(1).getVariableType());
         assertEquals(1, params.get(1).getParameterOrder());
@@ -156,7 +106,7 @@ public class DocCommentParserTest {
     void testParseMethodReturnValue() {
         String sourceCode = """
             package org.example;
-            
+
             public class UserService {
                 /**
                  * 获取用户信息
@@ -168,26 +118,26 @@ public class DocCommentParserTest {
             }
             """;
 
-        ParameterVariableElement returnValue = parser.parseMethodReturnValue(
+        ParameterVariableData returnValue = parser.parseMethodReturnValue(
                 sourceCode, "org.example.UserService", "getUser");
 
         assertNotNull(returnValue);
         assertEquals("return", returnValue.getVariableName());
         assertEquals("UserEntity", returnValue.getVariableType());
-        assertEquals("org.example.UserService#getUser", returnValue.getParentId());
+        assertEquals("org.example.UserService#getUser", returnValue.getParentName());
     }
 
     @Test
     void testParsePrimitiveTypeVariable() {
         String sourceCode = """
             package org.example;
-            
+
             public class UserEntity {
                 /**
                  * 年龄
                  */
                 private int age;
-                
+
                 /**
                  * 是否激活
                  */
@@ -195,19 +145,19 @@ public class DocCommentParserTest {
             }
             """;
 
-        List<MemberVariableElement> elements = parser.parseAllMemberVariables(sourceCode, "org.example.UserEntity");
+        List<MemberVariableData> values = parser.parseAllMemberVariables(sourceCode, "org.example.UserEntity");
 
-        assertEquals(2, elements.size());
-        
-        MemberVariableElement ageField = elements.stream()
+        assertEquals(2, values.size());
+
+        MemberVariableData ageField = values.stream()
                 .filter(f -> "age".equals(f.getVariableName()))
                 .findFirst()
                 .orElse(null);
         assertNotNull(ageField);
         assertEquals("int", ageField.getVariableType());
         assertTrue(ageField.isPrimitive());
-        
-        MemberVariableElement activeField = elements.stream()
+
+        MemberVariableData activeField = values.stream()
                 .filter(f -> "active".equals(f.getVariableName()))
                 .findFirst()
                 .orElse(null);
@@ -220,13 +170,13 @@ public class DocCommentParserTest {
     void testParseNonPrimitiveTypeVariable() {
         String sourceCode = """
             package org.example;
-            
+
             public class UserEntity {
                 /**
                  * 用户名
                  */
                 private String username;
-                
+
                 /**
                  * 用户ID
                  */
@@ -234,12 +184,12 @@ public class DocCommentParserTest {
             }
             """;
 
-        List<MemberVariableElement> elements = parser.parseAllMemberVariables(sourceCode, "org.example.UserEntity");
+        List<MemberVariableData> values = parser.parseAllMemberVariables(sourceCode, "org.example.UserEntity");
 
-        assertEquals(2, elements.size());
-        
-        for (MemberVariableElement element : elements) {
-            assertFalse(element.isPrimitive());
+        assertEquals(2, values.size());
+
+        for (MemberVariableData value : values) {
+            assertFalse(value.isPrimitive());
         }
     }
 }

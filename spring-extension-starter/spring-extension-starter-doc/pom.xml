@@ -23,7 +23,7 @@
             <groupId>io.github.dao1230source</groupId>
             <artifactId>spring-extension-starter-io</artifactId>
         </dependency>
-         <dependency>
+        <dependency>
             <groupId>io.github.dao1230source</groupId>
             <artifactId>spring-extension-starter-object</artifactId>
         </dependency>
@@ -72,6 +72,13 @@
             <scope>test</scope>
         </dependency>
 
+        <!-- H2 Database for testing -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Apache Commons Lang3 -->
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -100,11 +107,9 @@
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
         </dependency>
-
-        <!-- H2 Database -->
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>runtime</scope>
         </dependency>
     </dependencies>

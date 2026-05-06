@@ -8,7 +8,8 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.comments.JavadocComment;
 import com.github.javaparser.ast.expr.AnnotationExpr;
-import org.source.spring.doc.domain.element.RestDocElement;
+import org.source.spring.doc.domain.value.RestDocData;
+import org.source.spring.doc.domain.object.DocObjectTypeEnum;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +33,7 @@ import java.util.Optional;
  * <p>使用示例：</p>
  * <pre>{@code
  * RestAnnotationParser parser = new RestAnnotationParser();
- * List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "com.example.UserController");
+ * List<RestDocValue> endpoints = parser.parseRestEndpoints(sourceCode, "com.example.UserController");
  * }</pre>
  * @since 1.0.0
  */
@@ -65,8 +66,8 @@ public class RestAnnotationParser {
      * @param classQualifiedName 类的全限定名
      * @return REST接口端点列表，如果类没有 @RestController 或 @Controller 注解则返回空列表
      */
-    public List<RestDocElement> parseRestEndpoints(String sourceCode, String classQualifiedName) {
-        List<RestDocElement> endpoints = new ArrayList<>();
+    public List<RestDocData> parseRestEndpoints(String sourceCode, String classQualifiedName) {
+        List<RestDocData> endpoints = new ArrayList<>();
 
         ParseResult<CompilationUnit> result = javaParser.parse(sourceCode);
         if (!result.isSuccessful() || result.getResult().isEmpty()) {
@@ -87,21 +88,21 @@ public class RestAnnotationParser {
             return endpoints;
         }
 
-        String classPath = "";
         String classBasePath = "";
 
         for (AnnotationExpr annotation : classDecl.getAnnotations()) {
             if (isRequestMapping(annotation)) {
                 classBasePath = extractPath(annotation);
-                classPath = classQualifiedName;
                 break;
             }
         }
 
+        int sorted = 0;
         for (MethodDeclaration method : classDecl.getMethods()) {
-            RestDocElement endpoint = parseMethodEndpoint(method, classPath, classBasePath);
+            RestDocData endpoint = parseMethodEndpoint(method, classQualifiedName, classBasePath, sorted);
             if (endpoint != null) {
                 endpoints.add(endpoint);
+                sorted++;
             }
         }
 
@@ -135,18 +136,23 @@ public class RestAnnotationParser {
      * 同时提取方法的JavaDoc注释内容。</p>
      *
      * @param method        方法声明对象
-     * @param classPath     类的全限定路径
+     * @param classQualifiedName 类的全限定路径
      * @param classBasePath 类级别的请求路径前缀
+     * @param sorted        接口在类中的解析顺序
      * @return REST接口端点信息，如果方法没有请求映射注解则返回null
      */
-    private RestDocElement parseMethodEndpoint(MethodDeclaration method, String classPath, String classBasePath) {
+    private RestDocData parseMethodEndpoint(MethodDeclaration method, String classQualifiedName, String classBasePath, int sorted) {
         for (AnnotationExpr annotation : method.getAnnotations()) {
             String httpMethod = getHttpMethod(annotation);
             if (httpMethod != null) {
-                RestDocElement endpoint = new RestDocElement();
+                RestDocData endpoint = new RestDocData();
+                String path = classBasePath + extractPath(annotation);
+                endpoint.setName(httpMethod + ":" + path);
+                endpoint.setParentName(classQualifiedName);
+                endpoint.setSorted(String.valueOf(sorted));
+                endpoint.setRelationType(DocObjectTypeEnum.REST_ENDPOINT.getType());
                 endpoint.setHttpMethod(httpMethod);
-                endpoint.setPath(classBasePath + extractPath(annotation));
-                endpoint.setClassPath(classPath);
+                endpoint.setPath(path);
                 endpoint.setReturnType(method.getType().asString());
 
                 Optional<JavadocComment> javadoc = method.getJavadocComment();

@@ -21,6 +21,8 @@ public class DocParserReport {
     private int totalParameters;
     private int totalEndpoints;
     private int totalModules;
+    private int totalSpringBeans;
+    private int totalSharedVariables;
     private int classesWithoutJavaDoc;
     private int methodsWithoutJavaDoc;
     private int fieldsWithoutJavaDoc;
@@ -36,16 +38,65 @@ public class DocParserReport {
         this.duration = endTime - startTime;
     }
 
-    public void incrementFiles() { this.totalFiles++; }
-    public void incrementClasses() { this.totalClasses++; }
-    public void incrementMethods() { this.totalMethods++; }
-    public void incrementFields() { this.totalFields++; }
-    public void incrementParameters() { this.totalParameters++; }
-    public void incrementEndpoints() { this.totalEndpoints++; }
-    public void incrementModules() { this.totalModules++; }
-    public void incrementClassesWithoutJavaDoc() { this.classesWithoutJavaDoc++; }
-    public void incrementMethodsWithoutJavaDoc() { this.methodsWithoutJavaDoc++; }
-    public void incrementFieldsWithoutJavaDoc() { this.fieldsWithoutJavaDoc++; }
+    /**
+     * 增加文件数量
+     */
+    public void addFiles(int count) { this.totalFiles += count; }
+
+    /**
+     * 增加类数量
+     */
+    public void addClasses(int count) { this.totalClasses += count; }
+
+    /**
+     * 增加方法数量
+     */
+    public void addMethods(int count) { this.totalMethods += count; }
+
+    /**
+     * 增加字段数量
+     */
+    public void addFields(int count) { this.totalFields += count; }
+
+    /**
+     * 增加参数数量
+     */
+    public void addParameters(int count) { this.totalParameters += count; }
+
+    /**
+     * 增加REST接口数量
+     */
+    public void addEndpoints(int count) { this.totalEndpoints += count; }
+
+    /**
+     * 增加模块数量
+     */
+    public void addModules(int count) { this.totalModules += count; }
+
+    /**
+     * 增加Spring Bean数量
+     */
+    public void addSpringBeans(int count) { this.totalSpringBeans += count; }
+
+    /**
+     * 增加共用变量数量
+     */
+    public void addSharedVariables(int count) { this.totalSharedVariables += count; }
+
+    /**
+     * 增加缺少JavaDoc的类数量
+     */
+    public void addClassesWithoutJavaDoc(int count) { this.classesWithoutJavaDoc += count; }
+
+    /**
+     * 增加缺少JavaDoc的方法数量
+     */
+    public void addMethodsWithoutJavaDoc(int count) { this.methodsWithoutJavaDoc += count; }
+
+    /**
+     * 增加缺少JavaDoc的字段数量
+     */
+    public void addFieldsWithoutJavaDoc(int count) { this.fieldsWithoutJavaDoc += count; }
 
     public void addFailedFile(String filePath, String error) {
         this.failedFiles++;
@@ -63,6 +114,8 @@ public class DocParserReport {
         sb.append("字段总数: ").append(totalFields).append(" (缺少JavaDoc: ").append(fieldsWithoutJavaDoc).append(")\n");
         sb.append("参数总数: ").append(totalParameters).append("\n");
         sb.append("REST接口: ").append(totalEndpoints).append("\n");
+        sb.append("Spring Bean: ").append(totalSpringBeans).append("\n");
+        sb.append("共用变量: ").append(totalSharedVariables).append("\n");
         if (failedFiles > 0) {
             sb.append("失败文件: ").append(failedFiles).append("\n");
         }

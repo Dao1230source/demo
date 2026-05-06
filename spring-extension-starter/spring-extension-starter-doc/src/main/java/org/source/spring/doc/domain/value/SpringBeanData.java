@@ -1,14 +1,14 @@
-package org.source.spring.doc.domain.element;
+package org.source.spring.doc.domain.value;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
-import org.springframework.lang.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Spring Bean 文档元素
+ * Spring Bean 文档值对象
  * <p>
  * 表示 Spring Bean 的文档信息，包含 Bean 名称、类型、
  * 依赖注入信息、事务和异步配置等。
@@ -19,7 +19,8 @@ import java.util.List;
  */
 @EqualsAndHashCode(callSuper = true)
 @Data
-public class SpringBeanElement extends DocElement {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class SpringBeanData extends DocData {
 
     /**
      * Bean 名称
@@ -52,34 +53,22 @@ public class SpringBeanElement extends DocElement {
     private String cronExpression;
 
     /**
-     * 所属类的全限定名
+     * JavaDoc 注释内容
      */
-    private String classQualifiedName;
+    private String docContent;
 
     /**
-     * 获取元素的唯一标识
-     *
-     * @return Bean 的唯一标识
+     * 是否已废弃（@Deprecated）
      */
-    @Override
-    public @NonNull String getId() {
-        return beanName != null ? beanName : classQualifiedName;
-    }
+    private boolean deprecated;
 
     /**
-     * 获取父元素 ID
-     *
-     * @return 所属类的全限定名
+     * 废弃说明
      */
-    @Override
-    public String getParentId() {
-        return classQualifiedName;
-    }
+    private String deprecatedReason;
 
     /**
      * 添加依赖
-     *
-     * @param dependency 依赖名称
      */
     public void addDependency(String dependency) {
         if (dependencies == null) {

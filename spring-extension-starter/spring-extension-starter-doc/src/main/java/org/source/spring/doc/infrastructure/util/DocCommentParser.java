@@ -7,7 +7,10 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.*;
 import com.github.javaparser.ast.comments.Comment;
 import com.github.javaparser.ast.comments.JavadocComment;
-import org.source.spring.doc.domain.element.*;
+import com.github.javaparser.ast.expr.AnnotationExpr;
+import com.github.javaparser.ast.expr.NormalAnnotationExpr;
+import org.source.spring.doc.domain.value.*;
+import org.source.spring.doc.domain.object.DocObjectTypeEnum;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,21 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * JavaDoc 注释解析器
  * <p>
  * 基于 JavaParser 实现的 JavaDoc 注释解析工具，
- * 用于解析类、方法、字段的 JavaDoc 注释内容。
- * </p>
- * <p>
- * 支持解析：
- * <ul>
- *     <li>类级别的 JavaDoc 注释</li>
- *     <li>方法级别的 JavaDoc 注释</li>
- *     <li>字段级别的 JavaDoc 注释</li>
- *     <li>方法入参和返回值信息（作为独立元素）</li>
- *     <li>批量解析所有方法、字段</li>
- * </ul>
- * </p>
- * <p>
- * 变量通过共用变量元素（SharedVariableElement）实现共享，
- * 同一变量在多处使用时共享同一个实例。
+ * 直接返回 Value 对象。
  * </p>
  *
  * @author dao1230source
@@ -43,40 +32,29 @@ public class DocCommentParser {
 
     private final JavaParser javaParser;
 
-    private final Map<String, SharedVariableElement> sharedVariableCache = new ConcurrentHashMap<>();
+    private final Map<String, SharedVariableData> sharedVariableCache = new ConcurrentHashMap<>();
 
-    /**
-     * 缓存的 CompilationUnit，避免重复解析同一源文件
-     */
     private CompilationUnit cachedCompilationUnit;
 
-    /**
-     * 缓存的源代码，用于判断是否需要重新解析
-     */
     private String cachedSourceCode;
 
-    /**
-     * 构造 JavaDoc 注释解析器实例
-     * <p>
-     * 初始化 JavaParser 配置，不启用符号解析器以提高解析速度。
-     * </p>
-     */
+    private boolean parseValidationAnnotations = true;
+
     public DocCommentParser() {
         ParserConfiguration config = new ParserConfiguration()
                 .setSymbolResolver(null);
         this.javaParser = new JavaParser(config);
     }
 
-    /**
-     * 解析源代码并缓存 CompilationUnit
-     * <p>
-     * 如果源代码与缓存相同，直接返回缓存的 CompilationUnit；
-     * 否则重新解析并更新缓存。
-     * </p>
-     *
-     * @param sourceCode Java 源代码内容
-     * @return 解析后的 CompilationUnit，如果解析失败返回 null
-     */
+    public DocCommentParser(boolean parseValidationAnnotations) {
+        this();
+        this.parseValidationAnnotations = parseValidationAnnotations;
+    }
+
+    public void setParseValidationAnnotations(boolean parseValidationAnnotations) {
+        this.parseValidationAnnotations = parseValidationAnnotations;
+    }
+
     public CompilationUnit parseOnce(String sourceCode) {
         if (sourceCode != null && sourceCode.equals(cachedSourceCode) && cachedCompilationUnit != null) {
             return cachedCompilationUnit;
@@ -90,13 +68,6 @@ public class DocCommentParser {
         return null;
     }
 
-    /**
-     * 清空缓存
-     * <p>
-     * 清空 CompilationUnit 缓存和共用变量缓存，
-     * 用于解析完一个文件后准备解析下一个文件。
-     * </p>
-     */
     public void clearCache() {
         cachedCompilationUnit = null;
         cachedSourceCode = null;
@@ -105,15 +76,10 @@ public class DocCommentParser {
 
     /**
      * 解析类的 JavaDoc 注释
-     * <p>
-     * 解析指定类的 JavaDoc 注释内容，提取类名、全限定名、修饰符等信息。
-     * </p>
      *
-     * @param sourceCode         Java 源代码内容
-     * @param classQualifiedName 类的全限定名
-     * @return 类文档元素，如果解析失败返回 null
+     * @return 类文档值对象，如果解析失败返回 null
      */
-    public ClassDocElement parseClassDoc(String sourceCode, String classQualifiedName) {
+    public ClassDocData parseClassDoc(String sourceCode, String classQualifiedName, String moduleName, int sorted) {
         CompilationUnit cu = parseOnce(sourceCode);
         if (cu == null) {
             return null;
@@ -127,19 +93,29 @@ public class DocCommentParser {
         }
 
         ClassOrInterfaceDeclaration classDecl = classOpt.get();
-        ClassDocElement element = new ClassDocElement();
-        element.setClassName(simpleName);
-        element.setClassQualifiedName(classQualifiedName);
-        element.setModifiers(classDecl.getModifiers().toString());
+        ClassDocData value = new ClassDocData();
+        value.setName(classQualifiedName);
+        value.setParentName(moduleName);
+        value.setSorted(String.valueOf(sorted));
+        value.setRelationType(DocObjectTypeEnum.CLASS.getType());
+        value.setClassName(simpleName);
+        value.setModifiers(classDecl.getModifiers().toString());
+
+        // 解析废弃注解
+        String[] deprecatedInfo = parseDeprecatedAnnotation(classDecl.getAnnotations());
+        if (deprecatedInfo != null) {
+            value.setDeprecated(true);
+            value.setDeprecatedReason(deprecatedInfo[1]);
+        }
 
         Optional<JavadocComment> javadoc = classDecl.getJavadocComment();
         if (javadoc.isPresent()) {
-            element.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
+            value.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
         } else {
-            element.setDocContent("");
+            value.setDocContent("");
         }
 
-        return element;
+        return value;
     }
 
     private String cleanJavadocContent(String content) {
@@ -166,81 +142,13 @@ public class DocCommentParser {
         return sb.toString();
     }
 
-    public MethodDocElement parseMethodDoc(String sourceCode, String classQualifiedName, String methodName) {
-        CompilationUnit cu = parseOnce(sourceCode);
-        if (cu == null) {
-            return null;
-        }
-        String simpleName = classQualifiedName.substring(classQualifiedName.lastIndexOf('.') + 1);
-
-        Optional<ClassOrInterfaceDeclaration> classOpt = cu.getClassByName(simpleName);
-        if (classOpt.isEmpty()) {
-            return null;
-        }
-
-        ClassOrInterfaceDeclaration classDecl = classOpt.get();
-        Optional<MethodDeclaration> methodOpt = classDecl.getMethodsByName(methodName).stream().findFirst();
-        if (methodOpt.isEmpty()) {
-            return null;
-        }
-
-        MethodDeclaration methodDecl = methodOpt.get();
-        MethodDocElement element = new MethodDocElement();
-        element.setMethodName(methodName);
-        element.setReturnType(methodDecl.getType().asString());
-        element.setReturnTypeQualifiedName(methodDecl.getType().asString());
-        element.setClassQualifiedName(classQualifiedName);
-
-        Optional<JavadocComment> javadoc = methodDecl.getJavadocComment();
-        if (javadoc.isPresent()) {
-            element.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
-        }
-
-        return element;
-    }
-
-    public MemberVariableElement parseMemberVariableDoc(String sourceCode, String classQualifiedName, String variableName) {
-        ParseResult<CompilationUnit> result = javaParser.parse(sourceCode);
-        if (!result.isSuccessful() || result.getResult().isEmpty()) {
-            return null;
-        }
-
-        CompilationUnit cu = result.getResult().get();
-        String simpleName = classQualifiedName.substring(classQualifiedName.lastIndexOf('.') + 1);
-
-        Optional<ClassOrInterfaceDeclaration> classOpt = cu.getClassByName(simpleName);
-        if (classOpt.isEmpty()) {
-            return null;
-        }
-
-        ClassOrInterfaceDeclaration classDecl = classOpt.get();
-        Optional<FieldDeclaration> fieldOpt = classDecl.getFields().stream()
-                .filter(f -> f.getVariable(0).getNameAsString().equals(variableName))
-                .findFirst();
-
-        if (fieldOpt.isEmpty()) {
-            return null;
-        }
-
-        FieldDeclaration fieldDecl = fieldOpt.get();
-        String type = fieldDecl.getCommonType().asString();
-
-        SharedVariableElement sharedVar = getOrCreateSharedVariable(variableName, type);
-
-        MemberVariableElement element = new MemberVariableElement();
-        element.setClassQualifiedName(classQualifiedName);
-        element.setSharedVariable(sharedVar);
-
-        Optional<JavadocComment> javadoc = fieldDecl.getJavadocComment();
-        if (javadoc.isPresent()) {
-            element.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
-        }
-
-        return element;
-    }
-
-    public List<MethodDocElement> parseAllMethods(String sourceCode, String classQualifiedName) {
-        List<MethodDocElement> methods = new ArrayList<>();
+    /**
+     * 解析所有方法
+     *
+     * @return 方法文档值对象列表
+     */
+    public List<MethodDocData> parseAllMethods(String sourceCode, String classQualifiedName) {
+        List<MethodDocData> methods = new ArrayList<>();
 
         ParseResult<CompilationUnit> result = javaParser.parse(sourceCode);
         if (!result.isSuccessful() || result.getResult().isEmpty()) {
@@ -256,57 +164,91 @@ public class DocCommentParser {
         }
 
         ClassOrInterfaceDeclaration classDecl = classOpt.get();
+        int sorted = 0;
+
         // 解析普通方法
         for (MethodDeclaration method : classDecl.getMethods()) {
-            MethodDocElement element = new MethodDocElement();
-            element.setMethodName(method.getNameAsString());
-            element.setReturnType(method.getType().asString());
-            element.setReturnTypeQualifiedName(method.getType().asString());
-            element.setClassQualifiedName(classQualifiedName);
-            element.setIsConstructor(false);
-
+            MethodDocData value = new MethodDocData();
             String paramTypes = method.getParameters().stream()
                     .map(p -> p.getType().asString())
                     .reduce((a, b) -> a + "," + b)
                     .orElse("");
-            element.setParameterTypes(paramTypes);
+
+            String methodId = classQualifiedName + "#" + method.getNameAsString();
+            if (!paramTypes.isEmpty()) {
+                methodId = methodId + "(" + paramTypes + ")";
+            }
+            value.setName(methodId);
+            value.setParentName(classQualifiedName);
+            value.setSorted(String.valueOf(sorted++));
+            value.setRelationType(DocObjectTypeEnum.METHOD.getType());
+            value.setMethodName(method.getNameAsString());
+            value.setReturnType(method.getType().asString());
+            value.setReturnTypeQualifiedName(method.getType().asString());
+            value.setParameterTypes(paramTypes);
+            value.setIsConstructor(false);
+            value.setPrivate(method.isPrivate());
+
+            // 解析废弃注解
+            String[] deprecatedInfo = parseDeprecatedAnnotation(method.getAnnotations());
+            if (deprecatedInfo != null) {
+                value.setDeprecated(true);
+                value.setDeprecatedReason(deprecatedInfo[1]);
+            }
 
             Optional<JavadocComment> javadoc = method.getJavadocComment();
             if (javadoc.isPresent()) {
-                element.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
+                value.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
             }
 
-            methods.add(element);
+            methods.add(value);
         }
 
         // 解析构造函数
         for (ConstructorDeclaration constructor : classDecl.getConstructors()) {
-            MethodDocElement element = new MethodDocElement();
-            element.setMethodName(simpleName);
-            element.setReturnType(simpleName);
-            element.setReturnTypeQualifiedName(classQualifiedName);
-            element.setClassQualifiedName(classQualifiedName);
-            element.setIsConstructor(true);
-
+            MethodDocData value = new MethodDocData();
             String paramTypes = constructor.getParameters().stream()
                     .map(p -> p.getType().asString())
                     .reduce((a, b) -> a + "," + b)
                     .orElse("");
-            element.setParameterTypes(paramTypes);
+
+            String methodId = classQualifiedName + "#" + simpleName + "(" + paramTypes + ")";
+            value.setName(methodId);
+            value.setParentName(classQualifiedName);
+            value.setSorted(String.valueOf(sorted++));
+            value.setRelationType(DocObjectTypeEnum.METHOD.getType());
+            value.setMethodName(simpleName);
+            value.setReturnType(simpleName);
+            value.setReturnTypeQualifiedName(classQualifiedName);
+            value.setParameterTypes(paramTypes);
+            value.setIsConstructor(true);
+            value.setPrivate(constructor.isPrivate());
+
+            // 解析废弃注解
+            String[] deprecatedInfo = parseDeprecatedAnnotation(constructor.getAnnotations());
+            if (deprecatedInfo != null) {
+                value.setDeprecated(true);
+                value.setDeprecatedReason(deprecatedInfo[1]);
+            }
 
             Optional<JavadocComment> javadoc = constructor.getJavadocComment();
             if (javadoc.isPresent()) {
-                element.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
+                value.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
             }
 
-            methods.add(element);
+            methods.add(value);
         }
 
         return methods;
     }
 
-    public List<ParameterVariableElement> parseMethodParameters(String sourceCode, String classQualifiedName, String methodName) {
-        List<ParameterVariableElement> parameters = new ArrayList<>();
+    /**
+     * 解析方法参数
+     *
+     * @return 参数变量值对象列表
+     */
+    public List<ParameterVariableData> parseMethodParameters(String sourceCode, String classQualifiedName, String methodName) {
+        List<ParameterVariableData> parameters = new ArrayList<>();
 
         CompilationUnit cu = parseOnce(sourceCode);
         if (cu == null) {
@@ -328,29 +270,45 @@ public class DocCommentParser {
         MethodDeclaration method = methodOpt.get();
         String methodId = classQualifiedName + "#" + methodName;
 
+        ValidationAnnotationParser validationParser = parseValidationAnnotations ? new ValidationAnnotationParser() : null;
         int order = 0;
         for (Parameter param : method.getParameters()) {
             String type = param.getType().asString();
-            SharedVariableElement sharedVar = getOrCreateSharedVariable(param.getNameAsString(), type);
+            SharedVariableData sharedVar = getOrCreateSharedVariable(param.getNameAsString(), type);
 
-            ParameterVariableElement element = new ParameterVariableElement();
-            element.setMethodId(methodId);
-            element.setParameterOrder(order);
-            element.setSharedVariable(sharedVar);
+            ParameterVariableData value = new ParameterVariableData();
+            value.setName(methodId + "#" + param.getNameAsString());
+            value.setParentName(methodId);
+            value.setSorted(String.valueOf(order));
+            value.setRelationType(DocObjectTypeEnum.PARAMETER_VARIABLE.getType());
+            value.setParameterOrder(order);
+            value.setSharedVariable(sharedVar);
+
+            if (parseValidationAnnotations && validationParser != null) {
+                List<String> validations = validationParser.parseParameterValidations(param);
+                if (!validations.isEmpty()) {
+                    value.setValidationAnnotations(validations);
+                }
+            }
 
             Optional<Comment> paramComment = param.getComment();
             if (paramComment.isPresent()) {
-                element.setDocContent(cleanJavadocContent(paramComment.get().getContent()));
+                value.setDocContent(cleanJavadocContent(paramComment.get().getContent()));
             }
 
-            parameters.add(element);
+            parameters.add(value);
             order++;
         }
 
         return parameters;
     }
 
-    public ParameterVariableElement parseMethodReturnValue(String sourceCode, String classQualifiedName, String methodName) {
+    /**
+     * 解析方法返回值
+     *
+     * @return 参数变量值对象（返回值）
+     */
+    public ParameterVariableData parseMethodReturnValue(String sourceCode, String classQualifiedName, String methodName) {
         ParseResult<CompilationUnit> result = javaParser.parse(sourceCode);
         if (!result.isSuccessful() || result.getResult().isEmpty()) {
             return null;
@@ -374,23 +332,26 @@ public class DocCommentParser {
         String methodId = classQualifiedName + "#" + methodName;
         String type = method.getType().asString();
 
-        ParameterVariableElement element = new ParameterVariableElement();
-        element.setMethodId(methodId);
-        element.setParameterOrder(-1);
-        element.setVariableName("return");
-        element.setVariableType(type);
-        element.setVariableTypeQualifiedName(type);
-        element.setPrimitive(isPrimitiveType(type));
+        ParameterVariableData value = new ParameterVariableData();
+        value.setName(methodId + "#return");
+        value.setParentName(methodId);
+        value.setSorted("-1");
+        value.setRelationType(DocObjectTypeEnum.PARAMETER_VARIABLE.getType());
+        value.setParameterOrder(-1);
+        value.setVariableName("return");
+        value.setVariableType(type);
+        value.setVariableTypeQualifiedName(type);
+        value.setPrimitive(isPrimitiveType(type));
 
         Optional<JavadocComment> javadoc = method.getJavadocComment();
         if (javadoc.isPresent()) {
             String returnDoc = extractReturnDoc(javadoc.get().getContent());
             if (returnDoc != null) {
-                element.setDocContent(returnDoc);
+                value.setDocContent(returnDoc);
             }
         }
 
-        return element;
+        return value;
     }
 
     private String extractReturnDoc(String content) {
@@ -410,8 +371,13 @@ public class DocCommentParser {
         return null;
     }
 
-    public List<MemberVariableElement> parseAllMemberVariables(String sourceCode, String classQualifiedName) {
-        List<MemberVariableElement> fields = new ArrayList<>();
+    /**
+     * 解析所有成员变量
+     *
+     * @return 成员变量值对象列表
+     */
+    public List<MemberVariableData> parseAllMemberVariables(String sourceCode, String classQualifiedName) {
+        List<MemberVariableData> fields = new ArrayList<>();
 
         ParseResult<CompilationUnit> result = javaParser.parse(sourceCode);
         if (!result.isSuccessful() || result.getResult().isEmpty()) {
@@ -427,56 +393,72 @@ public class DocCommentParser {
         }
 
         ClassOrInterfaceDeclaration classDecl = classOpt.get();
+        ValidationAnnotationParser validationParser = parseValidationAnnotations ? new ValidationAnnotationParser() : null;
+        int sorted = 0;
         for (FieldDeclaration field : classDecl.getFields()) {
             String fieldName = field.getVariable(0).getNameAsString();
             String type = field.getCommonType().asString();
 
-            SharedVariableElement sharedVar = getOrCreateSharedVariable(fieldName, type);
+            SharedVariableData sharedVar = getOrCreateSharedVariable(fieldName, type);
 
-            MemberVariableElement element = new MemberVariableElement();
-            element.setClassQualifiedName(classQualifiedName);
-            element.setSharedVariable(sharedVar);
+            MemberVariableData value = new MemberVariableData();
+            value.setName(classQualifiedName + "#" + fieldName);
+            value.setParentName(classQualifiedName);
+            value.setSorted(String.valueOf(sorted++));
+            value.setRelationType(DocObjectTypeEnum.MEMBER_VARIABLE.getType());
+            value.setSharedVariable(sharedVar);
+            value.setPrivate(field.isPrivate());
+
+            // 解析废弃注解
+            String[] deprecatedInfo = parseDeprecatedAnnotation(field.getAnnotations());
+            if (deprecatedInfo != null) {
+                value.setDeprecated(true);
+                value.setDeprecatedReason(deprecatedInfo[1]);
+            }
+
+            if (parseValidationAnnotations && validationParser != null) {
+                List<String> validations = validationParser.parseFieldValidations(field.getAnnotations());
+                if (!validations.isEmpty()) {
+                    value.setValidationAnnotations(validations);
+                }
+            }
 
             Optional<JavadocComment> javadoc = field.getJavadocComment();
             if (javadoc.isPresent()) {
-                element.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
+                value.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
             }
 
-            fields.add(element);
+            fields.add(value);
         }
 
         return fields;
     }
 
-    private SharedVariableElement getOrCreateSharedVariable(String variableName, String variableType) {
+    private SharedVariableData getOrCreateSharedVariable(String variableName, String variableType) {
         String key = variableType + "#" + variableName;
         return sharedVariableCache.computeIfAbsent(key, k -> {
-            SharedVariableElement element = new SharedVariableElement();
-            element.setVariableName(variableName);
-            element.setVariableType(variableType);
-            element.setVariableTypeQualifiedName(variableType);
-            element.setPrimitive(isPrimitiveType(variableType));
-            return element;
+            SharedVariableData value = new SharedVariableData();
+            value.setName(key);
+            value.setRelationType(DocObjectTypeEnum.SHARED_VARIABLE.getType());
+            value.setVariableName(variableName);
+            value.setVariableType(variableType);
+            value.setVariableTypeQualifiedName(variableType);
+            value.setPrimitive(isPrimitiveType(variableType));
+            return value;
         });
     }
 
-    public Map<String, SharedVariableElement> getSharedVariableCache() {
+    public Map<String, SharedVariableData> getSharedVariableCache() {
         return sharedVariableCache;
     }
 
     /**
-     * 解析类的内部类/嵌套类信息
-     * <p>
-     * 递归解析类中的所有内部类，返回内部类的文档元素列表。
-     * 内部类的全限定名为：外部类全限定名$内部类名
-     * </p>
+     * 解析内部类（返回 InnerClassValue）
      *
-     * @param sourceCode         Java 源代码内容
-     * @param classQualifiedName 外部类的全限定名
-     * @return 内部类文档元素列表
+     * @return 内部类文档值对象列表
      */
-    public List<ClassDocElement> parseInnerClasses(String sourceCode, String classQualifiedName) {
-        List<ClassDocElement> innerClasses = new ArrayList<>();
+    public List<InnerClassData> parseInnerClassValues(String sourceCode, String classQualifiedName) {
+        List<InnerClassData> innerClasses = new ArrayList<>();
 
         CompilationUnit cu = parseOnce(sourceCode);
         if (cu == null) {
@@ -491,6 +473,7 @@ public class DocCommentParser {
         }
 
         ClassOrInterfaceDeclaration classDecl = classOpt.get();
+        int sorted = 0;
 
         // 解析内部类和接口
         for (ClassOrInterfaceDeclaration innerClass : classDecl.getMembers().stream()
@@ -498,23 +481,32 @@ public class DocCommentParser {
                 .map(m -> (ClassOrInterfaceDeclaration) m)
                 .toList()) {
 
-            ClassDocElement element = new ClassDocElement();
+            InnerClassData value = new InnerClassData();
             String innerClassName = innerClass.getNameAsString();
             String innerQualifiedName = classQualifiedName + "$" + innerClassName;
-            element.setClassName(innerClassName);
-            element.setClassQualifiedName(innerQualifiedName);
-            element.setModifiers(innerClass.getModifiers().toString());
-            element.setIsInterface(innerClass.isInterface());
-            element.setIsEnum(false);
+            value.setName(innerQualifiedName);
+            value.setParentName(classQualifiedName);
+            value.setSorted(String.valueOf(sorted++));
+            value.setRelationType(DocObjectTypeEnum.INNER_CLASS.getType());
+            value.setInnerClassName(innerClassName);
+            value.setModifiers(innerClass.getModifiers().toString());
+            value.setType(innerClass.isInterface() ? "interface" : "class");
+
+            // 解析废弃注解
+            String[] deprecatedInfo = parseDeprecatedAnnotation(innerClass.getAnnotations());
+            if (deprecatedInfo != null) {
+                value.setDeprecated(true);
+                value.setDeprecatedReason(deprecatedInfo[1]);
+            }
 
             Optional<JavadocComment> javadoc = innerClass.getJavadocComment();
             if (javadoc.isPresent()) {
-                element.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
+                value.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
             } else {
-                element.setDocContent("");
+                value.setDocContent("");
             }
 
-            innerClasses.add(element);
+            innerClasses.add(value);
         }
 
         // 解析内部枚举
@@ -523,23 +515,32 @@ public class DocCommentParser {
                 .map(m -> (EnumDeclaration) m)
                 .toList()) {
 
-            ClassDocElement element = new ClassDocElement();
+            InnerClassData value = new InnerClassData();
             String innerClassName = innerEnum.getNameAsString();
             String innerQualifiedName = classQualifiedName + "$" + innerClassName;
-            element.setClassName(innerClassName);
-            element.setClassQualifiedName(innerQualifiedName);
-            element.setModifiers(innerEnum.getModifiers().toString());
-            element.setIsInterface(false);
-            element.setIsEnum(true);
+            value.setName(innerQualifiedName);
+            value.setParentName(classQualifiedName);
+            value.setSorted(String.valueOf(sorted++));
+            value.setRelationType(DocObjectTypeEnum.INNER_CLASS.getType());
+            value.setInnerClassName(innerClassName);
+            value.setModifiers(innerEnum.getModifiers().toString());
+            value.setType("enum");
+
+            // 解析废弃注解
+            String[] deprecatedInfo = parseDeprecatedAnnotation(innerEnum.getAnnotations());
+            if (deprecatedInfo != null) {
+                value.setDeprecated(true);
+                value.setDeprecatedReason(deprecatedInfo[1]);
+            }
 
             Optional<JavadocComment> javadoc = innerEnum.getJavadocComment();
             if (javadoc.isPresent()) {
-                element.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
+                value.setDocContent(cleanJavadocContent(javadoc.get().getContent()));
             } else {
-                element.setDocContent("");
+                value.setDocContent("");
             }
 
-            innerClasses.add(element);
+            innerClasses.add(value);
         }
 
         return innerClasses;
@@ -548,5 +549,30 @@ public class DocCommentParser {
     private static boolean isPrimitiveType(String type) {
         return "byte".equals(type) || "short".equals(type) || "int".equals(type) || "long".equals(type)
                 || "float".equals(type) || "double".equals(type) || "boolean".equals(type) || "char".equals(type);
+    }
+
+    /**
+     * 解析 @Deprecated 注解
+     *
+     * @param annotations 注解列表
+     * @return [是否废弃, 废弃说明]，如果没有废弃注解返回 null
+     */
+    private String[] parseDeprecatedAnnotation(List<AnnotationExpr> annotations) {
+        for (AnnotationExpr annotation : annotations) {
+            String annotationName = annotation.getNameAsString();
+            if ("Deprecated".equals(annotationName) || "java.lang.Deprecated".equals(annotationName)) {
+                String reason = "";
+                if (annotation instanceof NormalAnnotationExpr normal) {
+                    for (com.github.javaparser.ast.expr.MemberValuePair pair : normal.getPairs()) {
+                        String name = pair.getNameAsString();
+                        if ("since".equals(name) || "forRemoval".equals(name)) {
+                            reason = reason.isEmpty() ? pair.getValue().toString() : reason + "," + pair.getValue().toString();
+                        }
+                    }
+                }
+                return new String[]{"true", reason.replaceAll("\"", "")};
+            }
+        }
+        return null;
     }
 }

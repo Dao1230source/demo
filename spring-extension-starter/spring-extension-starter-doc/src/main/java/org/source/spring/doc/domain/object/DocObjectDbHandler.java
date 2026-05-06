@@ -1,12 +1,14 @@
 package org.source.spring.doc.domain.object;
 
-import org.source.spring.doc.domain.entity.DocObjectEntity;
-import org.source.spring.doc.domain.repository.DocObjectRepository;
-import org.source.spring.object.handler.ObjectDbHandlerDefiner;
+import lombok.AllArgsConstructor;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.source.jpa.Condition;
+import org.source.spring.doc.domain.entity.ObjectEntity;
+import org.source.spring.doc.domain.repository.ObjectRepository;
+import org.source.spring.object.definer.handler.ObjectDbHandlerDefiner;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -18,22 +20,14 @@ import java.util.List;
  * @author dao1230source
  * @since 1.0.0
  */
+@AllArgsConstructor
 @Component
-public class DocObjectDbHandler implements ObjectDbHandlerDefiner<DocObjectEntity> {
+public class DocObjectDbHandler implements ObjectDbHandlerDefiner<ObjectEntity> {
 
     /**
      * 文档对象数据仓库
      */
-    private final DocObjectRepository repository;
-
-    /**
-     * 构造文档对象数据库处理器
-     *
-     * @param repository 文档对象数据仓库
-     */
-    public DocObjectDbHandler(DocObjectRepository repository) {
-        this.repository = repository;
-    }
+    private final ObjectRepository repository;
 
     /**
      * 创建新的文档对象实体
@@ -41,8 +35,8 @@ public class DocObjectDbHandler implements ObjectDbHandlerDefiner<DocObjectEntit
      * @return 新的 DocObjectEntity 实例
      */
     @Override
-    public DocObjectEntity newObjectEntity() {
-        return new DocObjectEntity();
+    public @NonNull ObjectEntity newObjectEntity() {
+        return new ObjectEntity();
     }
 
     /**
@@ -52,11 +46,8 @@ public class DocObjectDbHandler implements ObjectDbHandlerDefiner<DocObjectEntit
      * @return 文档对象列表
      */
     @Override
-    public List<DocObjectEntity> findObjects(Collection<String> objectIds) {
-        if (objectIds == null || objectIds.isEmpty()) {
-            return Collections.emptyList();
-        }
-        return Collections.emptyList();
+    public @NonNull List<ObjectEntity> findObjects(@NonNull Collection<String> objectIds) {
+        return this.repository.findAll(new Condition<ObjectEntity>().in(ObjectEntity::getObjectId, objectIds));
     }
 
     /**
@@ -65,11 +56,8 @@ public class DocObjectDbHandler implements ObjectDbHandlerDefiner<DocObjectEntit
      * @param objectEntities 文档对象实体集合
      */
     @Override
-    public void saveObjects(Collection<DocObjectEntity> objectEntities) {
-        if (objectEntities == null || objectEntities.isEmpty()) {
-            return;
-        }
-        repository.saveAll(objectEntities);
+    public void saveObjects(@NonNull Collection<ObjectEntity> objectEntities) {
+        repository.onDuplicateUpdateBatch(objectEntities);
     }
 
     /**
@@ -78,7 +66,7 @@ public class DocObjectDbHandler implements ObjectDbHandlerDefiner<DocObjectEntit
      * @param objectIds 对象 ID 集合
      */
     @Override
-    public void deleteObjects(Collection<String> objectIds) {
+    public void deleteObjects(@NonNull Collection<String> objectIds) {
         // 暂不实现删除
     }
 
@@ -88,7 +76,7 @@ public class DocObjectDbHandler implements ObjectDbHandlerDefiner<DocObjectEntit
      * @param objectIds 对象 ID 集合
      */
     @Override
-    public void removeObjects(Collection<String> objectIds) {
+    public void removeObjects(@NonNull Collection<String> objectIds) {
         // 暂不实现移除
     }
 }

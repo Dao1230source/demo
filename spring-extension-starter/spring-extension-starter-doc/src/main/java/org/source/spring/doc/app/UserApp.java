@@ -1,7 +1,7 @@
 package org.source.spring.doc.app;
 
 import lombok.AllArgsConstructor;
-import org.source.spring.doc.domain.service.UserService;
+import org.source.spring.doc.domain.repository.UserRepository;
 import org.springframework.stereotype.Component;
 
 /**
@@ -27,5 +27,5 @@ public class UserApp {
     /**
      * 用户领域服务
      */
-    private final UserService userService;
+    private final UserRepository userRepository;
 }

@@ -1,15 +1,18 @@
 package org.source.spring.doc.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.source.spring.doc.domain.repository.DocObjectRepository;
-import org.source.spring.doc.domain.repository.DocObjectBodyRepository;
-import org.source.spring.doc.domain.entity.DocObjectEntity;
-import org.source.spring.doc.domain.entity.DocObjectBodyEntity;
+import org.source.spring.doc.domain.repository.ObjectRepository;
+import org.source.spring.doc.domain.repository.DocRepository;
+import org.source.spring.doc.domain.repository.RelationRepository;
+import org.source.spring.doc.domain.entity.ObjectEntity;
+import org.source.spring.doc.domain.entity.DocEntity;
+import org.source.spring.doc.domain.entity.RelationEntity;
 import org.source.spring.io.Output;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 文档查询控制器
@@ -31,8 +34,9 @@ import java.util.Optional;
 @RequestMapping("/doc")
 public class DocQueryController {
 
-    private final DocObjectRepository objectRepository;
-    private final DocObjectBodyRepository objectBodyRepository;
+    private final ObjectRepository objectRepository;
+    private final DocRepository objectBodyRepository;
+    private final RelationRepository relationRepository;
 
     /**
      * 获取所有文档对象列表
@@ -40,7 +44,7 @@ public class DocQueryController {
      * @return 文档对象列表
      */
     @GetMapping("/objects")
-    public Output<List<DocObjectEntity>> getAllObjects() {
+    public Output<List<ObjectEntity>> getAllObjects() {
         return Output.success(objectRepository.findAll());
     }
 
@@ -51,8 +55,8 @@ public class DocQueryController {
      * @return 文档对象
      */
     @GetMapping("/element/{objectId}")
-    public Output<DocObjectEntity> getElementById(@PathVariable String objectId) {
-        Optional<DocObjectEntity> object = objectRepository.findByObjectId(objectId);
+    public Output<ObjectEntity> getElementById(@PathVariable String objectId) {
+        Optional<ObjectEntity> object = objectRepository.findByObjectId(objectId);
         if (object.isPresent()) {
             return Output.success(object.get());
         }
@@ -62,12 +66,12 @@ public class DocQueryController {
     /**
      * 按类型获取文档对象列表
      *
-     * @param objectType 对象类型编码
+     * @param type 对象类型编码
      * @return 文档对象列表
      */
-    @GetMapping("/elements/type/{objectType}")
-    public Output<List<DocObjectEntity>> getElementsByType(@PathVariable Integer objectType) {
-        List<DocObjectEntity> objects = objectRepository.findByObjectType(objectType);
+    @GetMapping("/elements/type/{type}")
+    public Output<List<ObjectEntity>> getElementsByType(@PathVariable Integer type) {
+        List<ObjectEntity> objects = objectRepository.findByType(type);
         return Output.success(objects);
     }
 
@@ -78,8 +82,8 @@ public class DocQueryController {
      * @return 匹配的文档对象列表
      */
     @GetMapping("/search")
-    public Output<List<DocObjectEntity>> searchElements(@RequestParam String keyword) {
-        List<DocObjectEntity> objects = objectRepository.findByObjectIdContaining(keyword);
+    public Output<List<ObjectEntity>> searchElements(@RequestParam String keyword) {
+        List<ObjectEntity> objects = objectRepository.findByObjectIdContaining(keyword);
         return Output.success(objects);
     }
 
@@ -90,8 +94,8 @@ public class DocQueryController {
      * @return 文档对象详细内容
      */
     @GetMapping("/element/{objectId}/body")
-    public Output<DocObjectBodyEntity> getElementBody(@PathVariable String objectId) {
-        DocObjectBodyEntity body = objectBodyRepository.findByObjectId(objectId);
+    public Output<DocEntity> getElementBody(@PathVariable String objectId) {
+        DocEntity body = objectBodyRepository.findByObjectId(objectId);
         return Output.success(body);
     }
 
@@ -102,8 +106,14 @@ public class DocQueryController {
      * @return 子元素列表
      */
     @GetMapping("/element/{objectId}/children")
-    public Output<List<DocObjectEntity>> getChildren(@PathVariable String objectId) {
-        List<DocObjectEntity> children = objectRepository.findByParentId(objectId);
+    public Output<List<ObjectEntity>> getChildren(@PathVariable String objectId) {
+        List<RelationEntity> relations = relationRepository.findByParentObjectId(objectId);
+        List<String> childIds = relations.stream()
+                .map(RelationEntity::getObjectId)
+                .collect(Collectors.toList());
+        List<ObjectEntity> children = objectRepository.findAll().stream()
+                .filter(obj -> childIds.contains(obj.getObjectId()))
+                .collect(Collectors.toList());
         return Output.success(children);
     }
 
@@ -117,11 +127,11 @@ public class DocQueryController {
         long totalCount = objectRepository.count();
         DocStats stats = new DocStats();
         stats.totalCount = totalCount;
-        stats.classCount = objectRepository.findByObjectType(1).size();
-        stats.methodCount = objectRepository.findByObjectType(2).size();
-        stats.variableCount = objectRepository.findByObjectType(3).size() +
-                objectRepository.findByObjectType(4).size();
-        stats.endpointCount = objectRepository.findByObjectType(7).size();
+        stats.classCount = objectRepository.findByType(1).size();
+        stats.methodCount = objectRepository.findByType(2).size();
+        stats.variableCount = objectRepository.findByType(3).size() +
+                objectRepository.findByType(4).size();
+        stats.endpointCount = objectRepository.findByType(7).size();
         return Output.success(stats);
     }
 

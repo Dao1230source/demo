@@ -3,9 +3,8 @@ package org.source.spring.doc.infrastructure.util;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.source.spring.doc.domain.element.*;
 import org.source.spring.doc.domain.object.DocObjectProcessor;
-import org.source.spring.doc.domain.object.DocValue;
+import org.source.spring.doc.domain.value.*;
 import org.source.spring.doc.infrastructure.config.DocConfig;
 
 import java.io.IOException;
@@ -20,19 +19,7 @@ import java.util.stream.Stream;
  * 统一文档解析器
  * <p>
  * 基于 JavaParser 实现的统一文档解析工具，
- * 用于解析 Java 源码中的 JavaDoc 注释、注解信息等。
- * </p>
- * <p>
- * 支持解析的内容：
- * <ul>
- *     <li>类、方法、字段的 JavaDoc 注释</li>
- *     <li>JPA 注解（@Entity, @Table, @Column, @Id）</li>
- *     <li>REST 注解（@RestController, @RequestMapping 等）</li>
- *     <li>Spring 注解（@Component, @Service, @Transactional 等）</li>
- *     <li>Feign 注解（@FeignClient）</li>
- *     <li>MyBatis 注解（@Mapper, @Select 等）</li>
- *     <li>验证注解（@NotNull, @NotBlank 等）</li>
- * </ul>
+ * 直接返回 DocValue 对象。
  * </p>
  *
  * @author dao1230source
@@ -42,85 +29,79 @@ import java.util.stream.Stream;
 @Getter
 public class DocParser {
 
-    /**
-     * 文档对象处理器，用于保存解析结果
-     */
     private final DocObjectProcessor objectProcessor;
-
-    /**
-     * 文档解析配置
-     */
     private final DocConfig docConfig;
-
-    /**
-     * 解析报告，记录解析过程中的统计信息
-     */
     private DocParserReport report;
+    private int classSortedCounter = 0;
 
-    /**
-     * 构造文档解析器
-     *
-     * @param objectProcessor 文档对象处理器
-     */
     public DocParser(DocObjectProcessor objectProcessor) {
         this.objectProcessor = objectProcessor;
         this.docConfig = new DocConfig();
     }
 
-    /**
-     * 构造文档解析器（带配置）
-     *
-     * @param objectProcessor 文档对象处理器
-     * @param docConfig       文档解析配置
-     */
     public DocParser(DocObjectProcessor objectProcessor, DocConfig docConfig) {
         this.objectProcessor = objectProcessor;
         this.docConfig = docConfig;
     }
 
     /**
-     * 解析指定目录下的所有 Java 文件
-     * <p>
-     * 解析流程：
-     * <ol>
-     *     <li>解析项目模块结构</li>
-     *     <li>遍历每个模块下的 Java 文件</li>
-     *     <li>解析类、方法、字段、REST 接口等</li>
-     *     <li>保存解析结果到数据库</li>
-     *     <li>生成解析报告</li>
-     * </ol>
-     * </p>
+     * 解析文档（从配置读取扫描范围）
      *
-     * @param directoryPath 项目根目录路径
      * @return 解析报告
-     * @throws IOException 如果读取文件失败
      */
-    public DocParserReport parseDirectory(String directoryPath) throws IOException {
+    public DocParserReport parse() throws IOException {
         if (objectProcessor == null) {
             throw new IllegalStateException("DocObjectProcessor not configured");
         }
 
         report = new DocParserReport();
         report.start();
+        classSortedCounter = 0;
 
+        List<String> effectiveScanPaths = resolveScanPaths();
+
+        String projectRoot = resolveProjectRoot();
         ModuleParser moduleParser = new ModuleParser();
-        List<ModuleDocElement> modules = moduleParser.parseProjectModules(directoryPath);
-        modules.forEach(m -> report.incrementModules());
+        List<ModuleDocData> modules = moduleParser.parseProjectModules(projectRoot);
+        report.addModules(modules.size());
 
-        List<DocValue> allValues = Collections.synchronizedList(new ArrayList<>());
+        List<DocData> allValues = Collections.synchronizedList(new ArrayList<>());
 
-        if (docConfig.isEnableParallel()) {
-            ForkJoinPool pool = new ForkJoinPool(docConfig.getParallelThreads());
-            try {
-                pool.submit(() -> modules.parallelStream().forEach(module -> parseModule(module, allValues))).get();
-            } catch (Exception e) {
-                log.error("Parallel parsing failed", e);
+        if (effectiveScanPaths.isEmpty()) {
+            if (docConfig.isEnableParallel()) {
+                ForkJoinPool pool = new ForkJoinPool(docConfig.getParallelThreads());
+                try {
+                    pool.submit(() -> modules.parallelStream().forEach(module -> parseModule(module, allValues))).get();
+                } catch (Exception e) {
+                    log.error("Parallel parsing failed", e);
+                    modules.forEach(module -> parseModule(module, allValues));
+                } finally {
+                    pool.shutdown();
+                }
+            } else {
                 modules.forEach(module -> parseModule(module, allValues));
-            } finally {
-                pool.shutdown();
             }
         } else {
-            modules.forEach(module -> parseModule(module, allValues));
+            List<String> javaFiles = collectJavaFilesFromScanPaths(effectiveScanPaths);
+            if (docConfig.isEnableParallel()) {
+                ForkJoinPool pool = new ForkJoinPool(docConfig.getParallelThreads());
+                try {
+                    pool.submit(() -> javaFiles.parallelStream()
+                            .filter(f -> !shouldExclude(f))
+                            .forEach(f -> parseJavaFile(f, allValues, modules))).get();
+                } catch (Exception e) {
+                    log.error("Parallel parsing failed", e);
+                    javaFiles.stream()
+                            .filter(f -> !shouldExclude(f))
+                            .forEach(f -> parseJavaFile(f, allValues, modules));
+                } finally {
+                    pool.shutdown();
+                }
+            } else {
+                javaFiles.stream()
+                        .filter(f -> !shouldExclude(f))
+                        .forEach(f -> parseJavaFile(f, allValues, modules));
+            }
         }
 
         if (!allValues.isEmpty()) {
@@ -135,30 +116,108 @@ public class DocParser {
         return report;
     }
 
-    private void parseModule(ModuleDocElement module, List<DocValue> allValues) {
-        String modulePath = module.getModulePath();
-        try {
-            DocValue moduleValue = convertElementToValue(module);
-            if (moduleValue != null) {
-                allValues.add(moduleValue);
+    private List<String> resolveScanPaths() {
+        List<String> scanPackages = docConfig.getScanPackages();
+        if (scanPackages == null || scanPackages.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        String projectRoot = resolveProjectRoot();
+        List<String> resolvedPaths = new ArrayList<>();
+
+        for (String scanPath : scanPackages) {
+            if (ScanPathUtils.isAbsolutePath(scanPath)) {
+                resolvedPaths.add(scanPath);
+            } else {
+                String fullPath = ScanPathUtils.convertPackageToPath(scanPath, projectRoot);
+                resolvedPaths.add(fullPath);
             }
+        }
+
+        return resolvedPaths;
+    }
+
+    private String resolveProjectRoot() {
+        String configuredPath = docConfig.getProjectRootPath();
+        if (StringUtils.isNotBlank(configuredPath)) {
+            return configuredPath;
+        }
+        return System.getProperty("user.dir");
+    }
+
+    private List<String> collectJavaFilesFromScanPaths(List<String> scanPaths) {
+        List<String> javaFiles = new ArrayList<>();
+        for (String scanPath : scanPaths) {
+            Path path = Paths.get(scanPath);
+            if (Files.exists(path) && Files.isDirectory(path)) {
+                try (Stream<Path> paths = Files.walk(path)) {
+                    paths.filter(Files::isRegularFile)
+                            .filter(p -> matchesExtension(p.toString()))
+                            .forEach(p -> javaFiles.add(p.toString()));
+                } catch (IOException e) {
+                    if (docConfig.isFailOnError()) {
+                        throw new RuntimeException("Failed to walk path: " + scanPath, e);
+                    }
+                    log.warn("Failed to walk path: {}", scanPath, e);
+                    report.addFailedFile(scanPath, e.getMessage());
+                }
+            } else {
+                log.warn("Scan path does not exist or is not a directory: {}", scanPath);
+            }
+        }
+        return javaFiles;
+    }
+
+    private boolean matchesExtension(String filePath) {
+        List<String> extensions = docConfig.getFileExtensions();
+        if (extensions == null || extensions.isEmpty()) {
+            return filePath.endsWith(".java");
+        }
+        return extensions.stream().anyMatch(filePath::endsWith);
+    }
+
+    private void parseModule(ModuleDocData module, List<DocData> allValues) {
+        String modulePath = module.getName();
+        try {
+            allValues.add(module);
 
             List<String> javaFiles = collectJavaFiles(modulePath);
+            int localClassSorted = 0;
             for (String javaFile : javaFiles) {
                 if (shouldExclude(javaFile)) {
                     continue;
                 }
-                List<DocValue> values = parseJavaFileToValues(javaFile, modulePath);
+                List<DocData> values = parseJavaFileToValues(javaFile, modulePath, localClassSorted);
                 allValues.addAll(values);
-                report.incrementFiles();
+                localClassSorted++;
             }
+            report.addFiles(javaFiles.size());
         } catch (IOException e) {
+            if (docConfig.isFailOnError()) {
+                throw new RuntimeException("Failed to parse module: " + modulePath, e);
+            }
             report.addFailedFile(modulePath, e.getMessage());
         }
     }
 
-    private List<DocValue> parseJavaFileToValues(String filePath, String modulePath) {
-        DocCommentParser commentParser = new DocCommentParser();
+    private void parseJavaFile(String filePath, List<DocData> allValues, List<ModuleDocData> modules) {
+        String modulePath = findModulePath(filePath, modules);
+        List<DocData> values = parseJavaFileToValues(filePath, modulePath, classSortedCounter++);
+        allValues.addAll(values);
+        report.addFiles(1);
+    }
+
+    private String findModulePath(String filePath, List<ModuleDocData> modules) {
+        for (ModuleDocData module : modules) {
+            if (filePath.startsWith(module.getName())) {
+                return module.getName();
+            }
+        }
+        return null;
+    }
+
+    private List<DocData> parseJavaFileToValues(String filePath, String modulePath, int classSorted) {
+        DocCommentParser commentParser = new DocCommentParser(docConfig.isParseValidationAnnotations());
         JpaAnnotationParser jpaParser = new JpaAnnotationParser();
         DocTagParser tagParser = new DocTagParser();
         RestAnnotationParser restParser = new RestAnnotationParser();
@@ -166,7 +225,7 @@ public class DocParser {
         FeignAnnotationParser feignParser = new FeignAnnotationParser();
         MyBatisAnnotationParser myBatisParser = new MyBatisAnnotationParser();
 
-        List<DocValue> values = new ArrayList<>();
+        List<DocData> values = new ArrayList<>();
         try {
             Path path = Paths.get(filePath);
             String sourceCode = Files.readString(path);
@@ -178,126 +237,129 @@ public class DocParser {
 
             commentParser.parseOnce(sourceCode);
 
-            ClassDocElement classElement = commentParser.parseClassDoc(sourceCode, qualifiedName);
-            if (classElement != null) {
-                classElement = jpaParser.parseJpaAnnotations(sourceCode, classElement);
-                if (modulePath != null) {
-                    classElement.setModuleName(modulePath);
-                }
+            // 解析类
+            ClassDocData classValue = commentParser.parseClassDoc(sourceCode, qualifiedName, modulePath != null ? modulePath : "", classSorted);
+            if (classValue != null) {
+                classValue = jpaParser.parseJpaAnnotations(sourceCode, classValue);
 
                 if (docConfig.isParseSpringAnnotations()) {
                     Map<String, Object> springAnnotations = springParser.parseComponentAnnotations(sourceCode, qualifiedName);
                     if (!springAnnotations.isEmpty()) {
-                        classElement.setSpringAnnotations(springAnnotations);
+                        classValue.setSpringAnnotations(springAnnotations);
                     }
                 }
 
-                if (StringUtils.isBlank(classElement.getDocContent())) {
-                    report.incrementClassesWithoutJavaDoc();
+                if (StringUtils.isBlank(classValue.getDocContent())) {
+                    report.addClassesWithoutJavaDoc(1);
                 }
-                report.incrementClasses();
+                report.addClasses(1);
+                values.add(classValue);
 
-                DocValue classValue = convertElementToValue(classElement);
-                if (classValue != null) {
-                    values.add(classValue);
-                }
-
-                List<ClassDocElement> innerClasses = commentParser.parseInnerClasses(sourceCode, qualifiedName);
-                for (ClassDocElement inner : innerClasses) {
-                    report.incrementClasses();
-                    DocValue innerValue = convertElementToValue(inner);
-                    if (innerValue != null) {
-                        values.add(innerValue);
-                    }
+                // 内部类（使用 InnerClassValue）
+                if (docConfig.isIncludeInnerClasses()) {
+                    List<InnerClassData> innerClasses = commentParser.parseInnerClassValues(sourceCode, qualifiedName);
+                    report.addClasses(innerClasses.size());
+                    values.addAll(innerClasses);
                 }
             }
 
-            List<MethodDocElement> methods = commentParser.parseAllMethods(sourceCode, qualifiedName);
-            for (MethodDocElement method : methods) {
+            // Spring Bean 解析
+            List<SpringBeanData> springBeans = springParser.parseSpringBeanValues(sourceCode, qualifiedName);
+            report.addSpringBeans(springBeans.size());
+            values.addAll(springBeans);
+
+            // 解析方法
+            List<MethodDocData> methods = commentParser.parseAllMethods(sourceCode, qualifiedName);
+            int methodCount = 0;
+            int methodWithoutDocCount = 0;
+            int paramCount = 0;
+            for (MethodDocData method : methods) {
+                if (!docConfig.isIncludePrivateMembers() && method.isPrivate()) {
+                    continue;
+                }
+
                 if (StringUtils.isNotBlank(method.getDocContent())) {
                     var tags = tagParser.parseAllTags(method.getDocContent());
                     method.setDocContent((String) tags.getOrDefault("return", method.getDocContent()));
                 }
 
                 if (StringUtils.isBlank(method.getDocContent())) {
-                    report.incrementMethodsWithoutJavaDoc();
+                    methodWithoutDocCount++;
                 }
-                report.incrementMethods();
+                methodCount++;
+                values.add(method);
 
-                DocValue methodValue = convertElementToValue(method);
-                if (methodValue != null) {
-                    values.add(methodValue);
-                }
+                // 方法参数
+                List<ParameterVariableData> params = commentParser.parseMethodParameters(sourceCode, qualifiedName, method.getName());
+                paramCount += params.size();
+                values.addAll(params);
 
-                List<ParameterVariableElement> params = commentParser.parseMethodParameters(sourceCode, qualifiedName, method.getMethodName());
-                for (ParameterVariableElement param : params) {
-                    report.incrementParameters();
-                    DocValue paramValue = convertElementToValue(param);
-                    if (paramValue != null) {
-                        values.add(paramValue);
-                    }
-                }
-
-                ParameterVariableElement returnValue = commentParser.parseMethodReturnValue(sourceCode, qualifiedName, method.getMethodName());
+                // 返回值
+                ParameterVariableData returnValue = commentParser.parseMethodReturnValue(sourceCode, qualifiedName, method.getName());
                 if (returnValue != null) {
-                    report.incrementParameters();
-                    DocValue returnValueDoc = convertElementToValue(returnValue);
-                    if (returnValueDoc != null) {
-                        values.add(returnValueDoc);
-                    }
+                    paramCount++;
+                    values.add(returnValue);
                 }
             }
+            report.addMethodsWithoutJavaDoc(methodWithoutDocCount);
+            report.addMethods(methodCount);
+            report.addParameters(paramCount);
 
-            List<MemberVariableElement> fields = commentParser.parseAllMemberVariables(sourceCode, qualifiedName);
-            for (MemberVariableElement field : fields) {
-                JpaColumnVariableElement jpaColumn = jpaParser.parseJpaColumnVariable(sourceCode, qualifiedName, field.getVariableName(), field.getSharedVariable());
-                DocElement fieldElement = Objects.requireNonNullElse(jpaColumn, field);
+            // 解析字段
+            List<MemberVariableData> fields = commentParser.parseAllMemberVariables(sourceCode, qualifiedName);
+            int fieldCount = 0;
+            int fieldWithoutDocCount = 0;
+            int fieldSorted = 0;
+            for (MemberVariableData field : fields) {
+                if (!docConfig.isIncludePrivateMembers() && field.isPrivate()) {
+                    continue;
+                }
+
+                // JPA 列信息
+                JpaColumnVariableData jpaColumn = jpaParser.parseJpaColumnVariable(
+                        sourceCode, qualifiedName, field.getVariableName(), field.getSharedVariable(), fieldSorted);
+                DocData fieldValue = Objects.requireNonNullElse(jpaColumn, field);
 
                 if (StringUtils.isBlank(field.getDocContent())) {
-                    report.incrementFieldsWithoutJavaDoc();
+                    fieldWithoutDocCount++;
                 }
-                report.incrementFields();
-
-                DocValue fieldValue = convertElementToValue(fieldElement);
-                if (fieldValue != null) {
-                    values.add(fieldValue);
-                }
+                fieldCount++;
+                values.add(fieldValue);
+                fieldSorted++;
             }
+            report.addFieldsWithoutJavaDoc(fieldWithoutDocCount);
+            report.addFields(fieldCount);
 
-            List<RestDocElement> endpoints = restParser.parseRestEndpoints(sourceCode, qualifiedName);
-            for (RestDocElement endpoint : endpoints) {
-                report.incrementEndpoints();
-                DocValue endpointValue = convertElementToValue(endpoint);
-                if (endpointValue != null) {
-                    values.add(endpointValue);
-                }
-            }
+            // REST 接口
+            List<RestDocData> endpoints = restParser.parseRestEndpoints(sourceCode, qualifiedName);
+            report.addEndpoints(endpoints.size());
+            values.addAll(endpoints);
 
             if (docConfig.isParseFeignAnnotations()) {
                 Map<String, Object> feignInfo = feignParser.parseFeignClient(sourceCode, qualifiedName);
-                if (!feignInfo.isEmpty() && classElement != null) {
-                    classElement.setFeignInfo(feignInfo);
+                if (!feignInfo.isEmpty() && classValue != null) {
+                    classValue.setFeignInfo(feignInfo);
                 }
             }
 
             if (docConfig.isParseMyBatisAnnotations()) {
                 Map<String, Object> myBatisInfo = myBatisParser.parseMyBatisMapper(sourceCode, qualifiedName);
-                if (!myBatisInfo.isEmpty() && classElement != null) {
-                    classElement.setMyBatisInfo(myBatisInfo);
+                if (!myBatisInfo.isEmpty() && classValue != null) {
+                    classValue.setMyBatisInfo(myBatisInfo);
                 }
             }
 
-            Collection<SharedVariableElement> sharedVariables = commentParser.getSharedVariableCache().values();
-            for (SharedVariableElement sharedVar : sharedVariables) {
-                DocValue sharedValue = convertElementToValue(sharedVar);
-                if (sharedValue != null) {
-                    values.add(sharedValue);
-                }
-            }
+            // 共用变量
+            Collection<SharedVariableData> sharedVariables = commentParser.getSharedVariableCache().values();
+            report.addSharedVariables(sharedVariables.size());
+            values.addAll(sharedVariables);
 
             commentParser.clearCache();
 
         } catch (IOException e) {
+            if (docConfig.isFailOnError()) {
+                throw new RuntimeException("Failed to parse file: " + filePath, e);
+            }
             report.addFailedFile(filePath, e.getMessage());
         }
         return values;
@@ -316,45 +378,30 @@ public class DocParser {
         return false;
     }
 
-    private DocValue convertElementToValue(DocElement element) {
-        if (element == null) {
-            return null;
-        }
-
-        DocValue value = new DocValue();
-        value.setObjectId(element.getId());
-        value.setName(element.getId());
-
-        if (element instanceof ClassDocElement classElement) {
-            value.setName(classElement.getClassName());
-        } else if (element instanceof MethodDocElement methodElement) {
-            value.setName(methodElement.getMethodName());
-        } else if (element instanceof MemberVariableElement memberElement) {
-            value.setName(memberElement.getVariableName());
-            if (element instanceof JpaColumnVariableElement jpaElement) {
-                value.setName(jpaElement.getColumnName());
-            }
-        } else if (element instanceof SharedVariableElement sharedElement) {
-            value.setName(sharedElement.getVariableName());
-        } else if (element instanceof RestDocElement restElement) {
-            value.setName(restElement.getHttpMethod() + ":" + restElement.getPath());
-        } else if (element instanceof ModuleDocElement moduleElement) {
-            value.setName(moduleElement.getModuleName());
-        } else if (element instanceof ParameterVariableElement paramElement) {
-            value.setName(paramElement.getVariableName());
-        }
-
-        return value;
-    }
-
     private List<String> collectJavaFiles(String directoryPath) throws IOException {
+        List<String> javaFiles = new ArrayList<>();
+
         Path srcMainJavaPath = Paths.get(directoryPath, "src", "main", "java");
-        if (!Files.exists(srcMainJavaPath)) {
-            return Collections.emptyList();
+        if (Files.exists(srcMainJavaPath)) {
+            try (Stream<Path> paths = Files.walk(srcMainJavaPath)) {
+                paths.filter(Files::isRegularFile)
+                        .filter(p -> matchesExtension(p.toString()))
+                        .forEach(p -> javaFiles.add(p.toString()));
+            }
         }
-        try (Stream<Path> paths = Files.walk(srcMainJavaPath)) {
-            return paths.filter(Files::isRegularFile).map(Path::toString).filter(s -> s.endsWith(".java")).toList();
+
+        if (docConfig.isIncludeTestClasses()) {
+            Path srcTestJavaPath = Paths.get(directoryPath, "src", "test", "java");
+            if (Files.exists(srcTestJavaPath)) {
+                try (Stream<Path> paths = Files.walk(srcTestJavaPath)) {
+                    paths.filter(Files::isRegularFile)
+                            .filter(p -> matchesExtension(p.toString()))
+                            .forEach(p -> javaFiles.add(p.toString()));
+                }
+            }
         }
+
+        return javaFiles;
     }
 
     private String extractPackageName(String sourceCode) {

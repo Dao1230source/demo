@@ -3,9 +3,7 @@ package org.source.spring.doc.domain.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.source.spring.object.entity.ObjectEntityDefiner;
-
-import java.time.LocalDateTime;
+import org.source.spring.object.definer.entity.ObjectEntityDefiner;
 
 /**
  * 文档对象实体
@@ -19,10 +17,10 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @Entity
-@Table(name = "doc_object", uniqueConstraints = {
+@Table(name = "object", uniqueConstraints = {
         @UniqueConstraint(name = "uk_object_id_version", columnNames = {"object_id", "version"})
 })
-public class DocObjectEntity implements ObjectEntityDefiner {
+public class ObjectEntity implements ObjectEntityDefiner {
 
     /**
      * 主键 ID
@@ -69,49 +67,4 @@ public class DocObjectEntity implements ObjectEntityDefiner {
      */
     @Column(name = "deleted", nullable = false)
     private Boolean deleted = false;
-
-    /**
-     * 创建人
-     */
-    @Column(name = "create_user", length = 64)
-    private String createUser;
-
-    /**
-     * 创建时间
-     */
-    @Column(name = "create_time")
-    private LocalDateTime createTime;
-
-    /**
-     * 更新人
-     */
-    @Column(name = "update_user", length = 64)
-    private String updateUser;
-
-    /**
-     * 更新时间
-     */
-    @Column(name = "update_time")
-    private LocalDateTime updateTime;
-
-    /**
-     * 持久化前回调，自动设置创建时间和更新时间
-     */
-    @PrePersist
-    public void prePersist() {
-        if (createTime == null) {
-            createTime = LocalDateTime.now();
-        }
-        if (updateTime == null) {
-            updateTime = LocalDateTime.now();
-        }
-    }
-
-    /**
-     * 更新前回调，自动设置更新时间
-     */
-    @PreUpdate
-    public void preUpdate() {
-        updateTime = LocalDateTime.now();
-    }
 }

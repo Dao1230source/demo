@@ -2,7 +2,6 @@ package org.source.spring.doc.infrastructure.util;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.source.spring.doc.domain.element.*;
 
 import java.util.List;
 import java.util.Map;

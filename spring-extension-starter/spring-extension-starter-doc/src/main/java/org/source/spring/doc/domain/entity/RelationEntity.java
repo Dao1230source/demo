@@ -3,7 +3,7 @@ package org.source.spring.doc.domain.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.source.spring.object.entity.RelationEntityDefiner;
+import org.source.spring.object.definer.entity.RelationEntityDefiner;
 
 import java.time.LocalDateTime;
 
@@ -19,11 +19,11 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @Entity
-@Table(name = "doc_relation", indexes = {
+@Table(name = "relation", indexes = {
         @Index(name = "idx_object_id", columnList = "object_id"),
         @Index(name = "idx_parent_object_id", columnList = "parent_object_id")
 })
-public class DocRelationEntity implements RelationEntityDefiner {
+public class RelationEntity implements RelationEntityDefiner {
 
     /**
      * 主键 ID
@@ -67,14 +67,4 @@ public class DocRelationEntity implements RelationEntityDefiner {
      */
     @Column(name = "create_time")
     private LocalDateTime createTime;
-
-    /**
-     * 持久化前回调，自动设置创建时间
-     */
-    @PrePersist
-    public void prePersist() {
-        if (createTime == null) {
-            createTime = LocalDateTime.now();
-        }
-    }
 }

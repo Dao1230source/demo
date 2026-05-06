@@ -2,7 +2,7 @@ package org.source.spring.doc.facade;
 
 import lombok.AllArgsConstructor;
 import org.source.spring.doc.domain.entity.UserEntity;
-import org.source.spring.doc.domain.service.UserService;
+import org.source.spring.doc.domain.repository.UserRepository;
 import org.source.spring.doc.facade.input.UserIn;
 import org.source.spring.doc.facade.mapper.UserMapper;
 import org.source.spring.doc.facade.output.UserOut;
@@ -38,7 +38,7 @@ public class UserFacade {
     /**
      * 用户领域服务
      */
-    private final UserService userService;
+    private final UserRepository userRepository;
 
     /**
      * 获取单个用户
@@ -50,7 +50,7 @@ public class UserFacade {
      */
     @GetMapping("/{id}")
     public UserOut getUser(@PathVariable Long id) {
-        UserEntity user = userService.getById(id);
+        UserEntity user = userRepository.getReferenceById(id);
         return UserMapper.INSTANCE.y2z(user);
     }
 
@@ -63,7 +63,7 @@ public class UserFacade {
      */
     @GetMapping("getAllUsers")
     public List<UserOut> getAllUsers() {
-        List<UserEntity> users = userService.findAll();
+        List<UserEntity> users = userRepository.findAll();
         return UserMapper.INSTANCE.y2zList(users);
     }
 
@@ -78,7 +78,7 @@ public class UserFacade {
     @PostMapping("createUser")
     public UserOut createUser(@RequestBody UserIn userIn) {
         UserEntity userEntity = UserMapper.INSTANCE.x2y(userIn);
-        UserEntity createdUser = userService.add(userEntity);
+        UserEntity createdUser = userRepository.save(userEntity);
         return UserMapper.INSTANCE.y2z(createdUser);
     }
 
@@ -92,7 +92,7 @@ public class UserFacade {
     @PostMapping("/batch")
     public void createUsers(@RequestBody List<UserIn> userIns) {
         List<UserEntity> userEntities = UserMapper.INSTANCE.x2yList(userIns);
-        userService.saveAll(userEntities);
+        userRepository.saveAll(userEntities);
     }
 
     /**
@@ -106,7 +106,7 @@ public class UserFacade {
     @PutMapping("/updateUser")
     public UserOut updateUser(@RequestBody UserIn userIn) {
         UserEntity userEntity = UserMapper.INSTANCE.x2y(userIn);
-        UserEntity updatedUser = userService.update(userEntity);
+        UserEntity updatedUser = userRepository.update(userEntity);
         return UserMapper.INSTANCE.y2z(updatedUser);
     }
 }

@@ -3,7 +3,9 @@ package org.source.spring.doc.domain.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.source.spring.object.entity.ObjectBodyEntityDefiner;
+import org.source.jpa.annotation.CheckExists;
+import org.source.jpa.enums.OperateEnum;
+import org.source.spring.object.definer.entity.ObjectBodyEntityDefiner;
 
 import java.time.LocalDateTime;
 
@@ -19,10 +21,10 @@ import java.time.LocalDateTime;
 @Data
 @NoArgsConstructor
 @Entity
-@Table(name = "doc_object_body", indexes = {
+@Table(name = "doc", indexes = {
         @Index(name = "idx_object_id", columnList = "object_id")
 })
-public class DocObjectBodyEntity implements ObjectBodyEntityDefiner {
+public class DocEntity implements ObjectBodyEntityDefiner {
 
     /**
      * 主键 ID
@@ -34,6 +36,7 @@ public class DocObjectBodyEntity implements ObjectBodyEntityDefiner {
     /**
      * 对象 ID，关联 doc_object 表
      */
+    @CheckExists(operate = {OperateEnum.UPDATE, OperateEnum.DELETE})
     @Column(name = "object_id", nullable = false, length = 64)
     private String objectId;
 
@@ -42,6 +45,12 @@ public class DocObjectBodyEntity implements ObjectBodyEntityDefiner {
      */
     @Column(name = "name", length = 255)
     private String name;
+
+    /**
+     * 父名称
+     */
+    @Column(name = "parent_name", length = 255)
+    private String parentName;
 
     /**
      * 对象内容（JSON 格式）
@@ -72,25 +81,4 @@ public class DocObjectBodyEntity implements ObjectBodyEntityDefiner {
      */
     @Column(name = "update_time")
     private LocalDateTime updateTime;
-
-    /**
-     * 持久化前回调，自动设置创建时间和更新时间
-     */
-    @PrePersist
-    public void prePersist() {
-        if (createTime == null) {
-            createTime = LocalDateTime.now();
-        }
-        if (updateTime == null) {
-            updateTime = LocalDateTime.now();
-        }
-    }
-
-    /**
-     * 更新前回调，自动设置更新时间
-     */
-    @PreUpdate
-    public void preUpdate() {
-        updateTime = LocalDateTime.now();
-    }
 }

@@ -2,7 +2,7 @@ package org.source.spring.doc.infrastructure.util;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.source.spring.doc.domain.element.RestDocElement;
+import org.source.spring.doc.domain.value.RestDocData;
 
 import java.util.List;
 
@@ -33,7 +33,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(1, endpoints.size());
         assertEquals("GET", endpoints.get(0).getHttpMethod());
@@ -56,7 +56,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(1, endpoints.size());
         assertEquals("POST", endpoints.get(0).getHttpMethod());
@@ -78,7 +78,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(1, endpoints.size());
         assertEquals("PUT", endpoints.get(0).getHttpMethod());
@@ -99,7 +99,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(1, endpoints.size());
         assertEquals("DELETE", endpoints.get(0).getHttpMethod());
@@ -122,7 +122,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(1, endpoints.size());
         assertEquals("/api/users", endpoints.get(0).getPath());
@@ -144,7 +144,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(1, endpoints.size());
         assertEquals("id", endpoints.get(0).getPathVariables()[0]);
@@ -166,7 +166,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(1, endpoints.size());
         assertEquals("name", endpoints.get(0).getRequestParams()[0]);
@@ -188,7 +188,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(1, endpoints.size());
         assertEquals("UserRequest", endpoints.get(0).getRequestBody());
@@ -214,7 +214,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(3, endpoints.size());
     }
@@ -238,7 +238,7 @@ public class RestAnnotationParserTest {
             }
             """;
         
-        List<RestDocElement> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
+        List<RestDocData> endpoints = parser.parseRestEndpoints(sourceCode, "org.example.UserController");
         
         assertEquals(1, endpoints.size());
         assertEquals("获取用户详情", endpoints.get(0).getDocContent());

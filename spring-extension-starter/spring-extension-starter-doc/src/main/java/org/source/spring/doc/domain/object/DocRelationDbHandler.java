@@ -1,12 +1,13 @@
 package org.source.spring.doc.domain.object;
 
-import org.source.spring.doc.domain.entity.DocRelationEntity;
-import org.source.spring.doc.domain.repository.DocRelationRepository;
-import org.source.spring.object.handler.RelationDbHandlerDefiner;
+import lombok.AllArgsConstructor;
+import org.checkerframework.checker.nullness.qual.NonNull;
+import org.source.spring.doc.domain.entity.RelationEntity;
+import org.source.spring.doc.domain.repository.RelationRepository;
+import org.source.spring.object.definer.handler.RelationDbHandlerDefiner;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -18,22 +19,14 @@ import java.util.List;
  * @author dao1230source
  * @since 1.0.0
  */
+@AllArgsConstructor
 @Component
-public class DocRelationDbHandler implements RelationDbHandlerDefiner<DocRelationEntity> {
+public class DocRelationDbHandler implements RelationDbHandlerDefiner<RelationEntity> {
 
     /**
      * 文档对象关系数据仓库
      */
-    private final DocRelationRepository repository;
-
-    /**
-     * 构造文档对象关系数据库处理器
-     *
-     * @param repository 文档对象关系数据仓库
-     */
-    public DocRelationDbHandler(DocRelationRepository repository) {
-        this.repository = repository;
-    }
+    private final RelationRepository repository;
 
     /**
      * 创建新的文档对象关系实体
@@ -41,8 +34,8 @@ public class DocRelationDbHandler implements RelationDbHandlerDefiner<DocRelatio
      * @return 新的 DocRelationEntity 实例
      */
     @Override
-    public DocRelationEntity newRelationEntity() {
-        return new DocRelationEntity();
+    public @NonNull RelationEntity newRelationEntity() {
+        return new RelationEntity();
     }
 
     /**
@@ -52,10 +45,7 @@ public class DocRelationDbHandler implements RelationDbHandlerDefiner<DocRelatio
      * @return 关系实体列表
      */
     @Override
-    public List<DocRelationEntity> findRelationsByObjectIds(Collection<String> objectIds) {
-        if (objectIds == null || objectIds.isEmpty()) {
-            return Collections.emptyList();
-        }
+    public @NonNull List<RelationEntity> findRelationsByObjectIds(@NonNull Collection<String> objectIds) {
         return repository.findByObjectIdIn(objectIds.stream().toList());
     }
 
@@ -66,10 +56,7 @@ public class DocRelationDbHandler implements RelationDbHandlerDefiner<DocRelatio
      * @return 关系实体列表
      */
     @Override
-    public List<DocRelationEntity> findRelationsByParentObjectIds(Collection<String> parentObjectIds) {
-        if (parentObjectIds == null || parentObjectIds.isEmpty()) {
-            return Collections.emptyList();
-        }
+    public @NonNull List<RelationEntity> findRelationsByParentObjectIds(@NonNull Collection<String> parentObjectIds) {
         return repository.findByParentObjectIdIn(parentObjectIds.stream().toList());
     }
 
@@ -80,10 +67,7 @@ public class DocRelationDbHandler implements RelationDbHandlerDefiner<DocRelatio
      * @return 关系实体列表
      */
     @Override
-    public List<DocRelationEntity> findRelationsByBelongIds(Collection<String> belongIds) {
-        if (belongIds == null || belongIds.isEmpty()) {
-            return Collections.emptyList();
-        }
+    public @NonNull List<RelationEntity> findRelationsByBelongIds(@NonNull Collection<String> belongIds) {
         return repository.findByObjectIdIn(belongIds.stream().toList());
     }
 
@@ -93,11 +77,8 @@ public class DocRelationDbHandler implements RelationDbHandlerDefiner<DocRelatio
      * @param relationEntities 关系实体集合
      */
     @Override
-    public void saveRelations(Collection<DocRelationEntity> relationEntities) {
-        if (relationEntities == null || relationEntities.isEmpty()) {
-            return;
-        }
-        repository.saveAll(relationEntities);
+    public void saveRelations(@NonNull Collection<RelationEntity> relationEntities) {
+        repository.onDuplicateUpdateBatch(relationEntities);
     }
 
     /**
@@ -106,7 +87,7 @@ public class DocRelationDbHandler implements RelationDbHandlerDefiner<DocRelatio
      * @param objectIds 对象 ID 合
      */
     @Override
-    public void removeRelations(Collection<String> objectIds) {
+    public void removeRelations(@NonNull Collection<String> objectIds) {
         // 暂不实现移除
     }
 }
